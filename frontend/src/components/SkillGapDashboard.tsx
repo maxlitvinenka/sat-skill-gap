@@ -10,8 +10,7 @@ import { SyntheticDataBanner } from "@/components/SyntheticDataBanner";
 import { RecommendationsTable } from "@/components/RecommendationsTable";
 import { TopSkillsChart } from "@/components/TopSkillsChart";
 import { PeerSimilarityChart } from "@/components/PeerSimilarityChart";
-import { ObservedSkillsSummary } from "@/components/ObservedSkillsSummary";
-import { SkillResponsePanel } from "@/components/SkillResponsePanel";
+import { TestedSkillsWork } from "@/components/TestedSkillsWork";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -98,13 +97,12 @@ export function SkillGapDashboard() {
           }
         />
 
-        <section className="space-y-4">
+        <section className="space-y-3">
           <SectionHeading
             title="Tested skills & item responses"
-            description="Every mastery score below is aggregated from synthetic MCQ attempts — auditable work, not random percentages."
+            description="Expand any skill to see MCQ attempts. Mastery % = correct ÷ items attempted."
           />
-          <ObservedSkillsSummary work={observedWork} />
-          <SkillResponsePanel work={observedWork} />
+          <TestedSkillsWork work={observedWork} />
         </section>
 
         <div className="grid gap-4 md:grid-cols-3">
