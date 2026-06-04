@@ -1,8 +1,8 @@
 # Foundational SAT Skill Gap Prediction
 
-**Standalone prototype — synthetic data only.** Not connected to the Reading Rooms production codebase or database.
+**Standalone prototype — synthetic data only.** Not connected to Reading Rooms production.
 
-Predicts which SAT Reading/Writing skills a student is likely weak in, even when those skills have not been tested yet. Uses **linear algebra**: student-skill matrix, cosine similarity (dot products and norms), and weighted imputation of missing scores.
+Predicts which SAT Reading/Writing skills a student is likely weak in when those skills have **not been tested yet**. Skill scores are **computed bottom-up from synthetic MCQ item responses** — every percentage is auditable from visible question attempts.
 
 ## Quick start
 
@@ -16,68 +16,69 @@ pip install -r requirements.txt
 python predict.py --export-frontend
 ```
 
-This generates:
-- `data/skill_metadata.csv` — 72 skills with category, level, foundational weight
-- `data/synthetic_student_scores.csv` — simulated scores (long format)
-- `output/recommendations_*.csv` — ranked gap recommendations
+Generates:
+- `data/item_bank.csv` — 216 synthetic MCQs (3 per skill)
+- `data/student_responses.csv` — every item attempt (stem, choice, correct/incorrect)
+- `data/synthetic_student_scores.csv` — skill mastery (% correct), only for tested skills
+- `output/recommendations_*.csv` — ranked gap predictions
 - `output/figures/*.png` — heatmap and bar charts
-- `frontend/public/data/dashboard.json` — data for the web UI
-
-Open `sat_skill_gap_prediction.ipynb` for the full linear-algebra walkthrough.
+- `frontend/public/data/dashboard.json` — dashboard data with `observedWork`
 
 ### Localhost dashboard
 
 ```bash
-cd frontend
-npm install
-npm run dev
+cd frontend && npm install && npm run dev
 ```
 
-Open **http://localhost:5173**
+Open **http://localhost:5173** — shows tested skills, expandable item responses, then predictions.
 
-Visual design copied from Reading Rooms (library green, antique gold, warm paper, Cinzel headings, shadcn-style components). **No runtime dependency** on the Reading Rooms repo.
+## Data flow (response-based)
 
-## Algorithm
+```
+Item bank → Student MCQ attempts → Response matrix R
+R aggregated via Q → Skill matrix S (% correct per skill)
+Untested skills = no items attempted
+Cosine similarity on S → predict missing skills → priority ranking
+```
 
-1. Build student-skill matrix S (75 x 72) from synthetic latent profiles
-2. Hide ~40% of scores per student (untested skills)
-3. For target student u, compute cosine similarity with peers on shared observed skills
-4. Predict missing skills: similarity-weighted average of peer scores
-5. Priority: (100 - predicted) x foundational_weight
-
-## Linear algebra (where / what / how)
+## Linear algebra
 
 | Concept | Where | How |
 |---------|-------|-----|
-| Matrix | lib.py scores array (75, 72) | Rows = student vectors |
-| Dot product | cosine_similarity_observed() | np.dot(u, v) |
-| Norm | same function | np.linalg.norm(u) |
-| Cosine similarity | peer matching | angle between partial skill vectors |
-| Weighted completion | predict_missing_scores() | similarity-weighted peer average |
+| Response matrix R | `lib.build_response_matrix()` | students × items, 0/1/NaN |
+| Skill-item matrix Q | `lib.build_skill_item_matrix()` | items × skills, one-hot |
+| Skill matrix S | `responses_to_skill_matrix()` | % correct per (student, skill) |
+| Dot product | `cosine_similarity_observed()` | `np.dot(u, v)` |
+| Norm | same | `np.linalg.norm(u)` |
+| Cosine similarity | peer matching on S (predictions) and R (demo) | angle between vectors |
+| Weighted completion | `predict_missing_scores()` | similarity-weighted peer average |
+
+Latent ability profiles are used **only** to set P(correct) when generating synthetic responses — they are not the displayed score.
+
+## Algorithm
+
+1. Assign ~60% of skills per student for testing (all 3 items per tested skill)
+2. Simulate MCQ responses from latent ability + item difficulty
+3. **S[i,j] = 100 × (# correct / # attempted)** for tested skills
+4. Cosine similarity on observed skill dimensions
+5. Priority: `(100 - predicted) × foundational_weight` for untested skills
 
 ## Assignment requirements
 
-1. **Non-trivial linear algebra:** Students modeled as vectors; data as a matrix; cosine similarity via dot products and norms; predictions via weighted vector comparison.
-2. **Real problem:** Tutoring platforms cannot test every SAT skill each month — this prioritizes likely hidden foundational weaknesses.
-3. **Verifiable artifacts:** Python code, notebook, CSVs, PNGs, dashboard.json, localhost UI, and this README.
-
-## Design kit provenance
-
-Copied once from Reading Rooms for visual consistency:
-- CSS tokens (index.css pattern)
-- Tailwind brand colors
-- shadcn/ui component patterns
-- Recharts theme (chart-theme.tsx)
+1. **Non-trivial linear algebra:** R, Q, S matrices; vectors; dot products; norms; cosine similarity; weighted imputation.
+2. **Real problem:** Cannot test every SAT skill monthly — surface hidden foundational gaps.
+3. **Verifiable artifacts:** Item bank, response log, derived scores, notebook, CSVs, PNGs, dashboard JSON.
 
 ## Project structure
 
 ```
+items.py               # 216-item MCQ bank
 skills.py              # 72-skill catalog
-lib.py                 # generation + cosine similarity + ranking
+lib.py                 # response generation + aggregation + prediction
 predict.py             # CLI
-export_frontend.py     # JSON for React dashboard
+export_frontend.py     # dashboard JSON with observedWork
 sat_skill_gap_prediction.ipynb
-frontend/              # Vite + React demo UI
-data/                  # CSV outputs
+frontend/              # Reading Rooms styled demo UI
+data/                  # item_bank, student_responses, skill scores
 output/                # recommendations + figures
 ```

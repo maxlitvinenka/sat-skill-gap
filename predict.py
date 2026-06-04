@@ -37,7 +37,9 @@ def main() -> None:
     save_figures(result, idx, analysis)
 
     print(f"Target student: {sid}")
-    print(f"Observed: {analysis['summary']['observed_skills']} | Untested: {analysis['summary']['untested_skills']}")
+    print(f"Observed: {analysis['summary']['observed_skills']} skills | "
+          f"{analysis['summary']['total_items_attempted']} items | "
+          f"Untested: {analysis['summary']['untested_skills']}")
     print(analysis["summary"]["interpretation"])
     print(f"\nTop 5 recommendations written to {out_csv}")
     for r in recs[:5]:

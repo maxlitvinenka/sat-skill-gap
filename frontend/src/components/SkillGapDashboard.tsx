@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
+  ClipboardList,
   Lightbulb,
   Target,
   Users,
@@ -9,6 +10,8 @@ import { SyntheticDataBanner } from "@/components/SyntheticDataBanner";
 import { RecommendationsTable } from "@/components/RecommendationsTable";
 import { TopSkillsChart } from "@/components/TopSkillsChart";
 import { PeerSimilarityChart } from "@/components/PeerSimilarityChart";
+import { ObservedSkillsSummary } from "@/components/ObservedSkillsSummary";
+import { SkillResponsePanel } from "@/components/SkillResponsePanel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -67,6 +70,7 @@ export function SkillGapDashboard() {
   }
 
   const topPeer = studentData.peers[0];
+  const observedWork = studentData.observedWork ?? [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -76,7 +80,7 @@ export function SkillGapDashboard() {
         <PageHeading
           eyebrow="Skill Gap Prediction"
           title={`Recommendations for ${studentId}`}
-          description="Cosine similarity on partial skill vectors predicts untested foundational gaps."
+          description="Skill scores are computed from item responses (% correct). Cosine similarity on partial skill vectors predicts untested gaps."
           icon={<Target className="h-8 w-8 text-brand-gold" />}
           action={
             <Select value={studentId} onValueChange={setStudentId}>
@@ -86,7 +90,7 @@ export function SkillGapDashboard() {
               <SelectContent>
                 {selectableStudents.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.label} ({s.observedCount} tested)
+                    {s.label} ({s.observedCount} skills tested)
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -94,29 +98,55 @@ export function SkillGapDashboard() {
           }
         />
 
+        <section className="space-y-4">
+          <SectionHeading
+            title="Tested skills & item responses"
+            description="Every mastery score below is aggregated from synthetic MCQ attempts — auditable work, not random percentages."
+          />
+          <ObservedSkillsSummary work={observedWork} />
+          <SkillResponsePanel work={observedWork} />
+        </section>
+
         <div className="grid gap-4 md:grid-cols-3">
           <StatCard
             icon={<BarChart3 className="h-5 w-5" />}
-            label="Skills coverage"
+            label="Skills tested"
             value={`${studentData.summary.observedSkills} / ${studentData.summary.observedSkills + studentData.summary.untestedSkills}`}
-            sublabel={`${studentData.summary.untestedSkills} untested skills`}
+            sublabel={`${studentData.summary.untestedSkills} skills with no items attempted`}
             tone="primary"
           />
           <StatCard
-            icon={<Lightbulb className="h-5 w-5" />}
-            label="Top priority score"
-            value={studentData.summary.topPriorityScore.toFixed(1)}
-            sublabel="Higher = more urgent foundational gap"
-            tone="accent"
+            icon={<ClipboardList className="h-5 w-5" />}
+            label="Items attempted"
+            value={studentData.summary.totalItemsAttempted ?? "—"}
+            sublabel={
+              studentData.summary.avgItemsPerSkill
+                ? `${studentData.summary.avgItemsPerSkill} avg items per tested skill`
+                : undefined
+            }
+            tone="default"
           />
           <StatCard
             icon={<Users className="h-5 w-5" />}
-            label="Nearest peer similarity"
+            label="Nearest peer (skill sim.)"
             value={topPeer ? topPeer.similarity.toFixed(3) : "—"}
-            sublabel={topPeer ? topPeer.studentId : "No similar peers"}
-            tone="default"
+            sublabel={
+              topPeer?.itemSimilarity
+                ? `${topPeer.studentId} · item sim. ${topPeer.itemSimilarity.toFixed(3)}`
+                : topPeer?.studentId
+            }
+            tone="accent"
           />
         </div>
+
+        <StatCard
+          icon={<Lightbulb className="h-5 w-5" />}
+          label="Top priority gap score"
+          value={studentData.summary.topPriorityScore.toFixed(1)}
+          sublabel="Highest (100 − predicted mastery) × foundational weight among untested skills"
+          tone="warning"
+          className="max-w-md"
+        />
 
         <Card className="border-l-4 border-l-brand-gold">
           <CardContent className="p-6">
@@ -130,8 +160,8 @@ export function SkillGapDashboard() {
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-3">
             <SectionHeading
-              title="Priority recommendations"
-              description="Untested skills ranked by (100 − predicted mastery) × foundational weight"
+              title="Priority recommendations (untested skills)"
+              description="Ranked by predicted weakness × foundational weight"
             />
             <RecommendationsTable rows={studentData.recommendations} />
           </div>
@@ -141,8 +171,8 @@ export function SkillGapDashboard() {
         <PeerSimilarityChart peers={studentData.peers} />
 
         <p className="text-meta text-center pb-4">
-          Linear algebra: students are vectors in ℝ⁷²; cosine similarity uses dot products and norms;
-          missing scores are weighted averages from similar peers.
+          Linear algebra: response matrix R (students × items) aggregates to skill matrix S via Q;
+          cosine similarity on S uses dot products and norms; predictions are weighted peer averages.
         </p>
       </div>
     </div>

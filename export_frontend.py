@@ -33,12 +33,14 @@ def export_dashboard(
         sid = result.student_ids[idx]
         observed = int(result.mask[idx].sum())
         hidden = N_SKILLS - observed
+        item_count = len(result.responses_df[result.responses_df["student_id"] == sid])
         students_meta.append(
             {
                 "id": sid,
                 "label": f"Student {sid}",
                 "observedCount": observed,
                 "hiddenCount": hidden,
+                "itemCount": item_count,
             }
         )
 
@@ -49,9 +51,36 @@ def export_dashboard(
             "summary": {
                 "observedSkills": analysis["summary"]["observed_skills"],
                 "untestedSkills": analysis["summary"]["untested_skills"],
+                "totalItemsAttempted": analysis["summary"]["total_items_attempted"],
+                "avgItemsPerSkill": analysis["summary"]["avg_items_per_skill"],
                 "topPriorityScore": analysis["summary"]["top_priority_score"],
                 "interpretation": analysis["summary"]["interpretation"],
             },
+            "observedWork": [
+                {
+                    "skillId": w["skill_id"],
+                    "skillName": w["skill_name"],
+                    "category": w["category"],
+                    "attempted": w["attempted"],
+                    "correct": w["correct"],
+                    "mastery": w["mastery"],
+                    "items": [
+                        {
+                            "itemId": it["item_id"],
+                            "stem": it["stem"],
+                            "chosen": it["chosen"],
+                            "correctChoice": it["correct_choice"],
+                            "isCorrect": it["is_correct"],
+                            "choiceA": it["choice_a"],
+                            "choiceB": it["choice_b"],
+                            "choiceC": it["choice_c"],
+                            "choiceD": it["choice_d"],
+                        }
+                        for it in w["items"]
+                    ],
+                }
+                for w in analysis["observed_work"]
+            ],
             "recommendations": [
                 {
                     "rank": r["rank"],
@@ -67,7 +96,11 @@ def export_dashboard(
                 for r in analysis["recommendations"]
             ],
             "peers": [
-                {"studentId": p["student_id"], "similarity": p["similarity"]}
+                {
+                    "studentId": p["student_id"],
+                    "similarity": p["similarity"],
+                    "itemSimilarity": p.get("item_similarity", 0),
+                }
                 for p in analysis["peers"]
             ],
         }
@@ -77,8 +110,10 @@ def export_dashboard(
             "generatedAt": datetime.now(timezone.utc).isoformat(),
             "isSynthetic": True,
             "algorithm": "cosine-similarity",
+            "scoreSource": "item-responses",
             "nStudents": len(result.student_ids),
             "nSkills": N_SKILLS,
+            "nItems": len(result.item_ids),
         },
         "students": students_meta,
         "defaultStudentId": result.student_ids[result.default_student_idx],
