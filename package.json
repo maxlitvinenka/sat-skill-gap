@@ -1,0 +1,8 @@
+{
+  "name": "sat-skill-gap-prototype",
+  "private": true,
+  "scripts": {
+    "demo": "python predict.py --export-frontend && npm run dev --prefix frontend",
+    "export": "python predict.py --export-frontend"
+  }
+}

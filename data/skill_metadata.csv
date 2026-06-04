@@ -1,0 +1,73 @@
+skill_id,skill_name,category,level,foundational_weight,prerequisites
+SK001,Identify Central Claim / Thesis,Reading,Basic,1.0,
+SK002,Locate Explicit Details,Reading,Basic,1.0,SK001
+SK003,Determine Paragraph Purpose,Reading,Basic,1.0,SK002
+SK004,Summarize Passage Main Points,Reading,Basic,1.0,SK003
+SK005,Understand Author's Tone,Reading,Intermediate,0.75,SK004
+SK006,Track Argument Development,Reading,Intermediate,0.75,SK005
+SK007,Compare Viewpoints Within Passage,Reading,Intermediate,0.75,SK006
+SK008,Draw Logical Inferences,Reading,Intermediate,0.75,SK007
+SK009,Resolve Conflicting Information,Reading,Intermediate,0.75,SK008
+SK010,Predict Author Response,Reading,Intermediate,0.75,SK009
+SK011,Interpret Figurative Language,Reading,Intermediate,0.75,SK010
+SK012,Analyze Cause and Effect,Reading,Intermediate,0.75,SK011
+SK013,Evaluate Argument Strength,Reading,Advanced,0.45,SK012
+SK014,Synthesize Multi-Paragraph Ideas,Reading,Advanced,0.45,SK013
+SK015,Identify Assumptions,Reading,Advanced,0.45,SK014
+SK016,Analyze Chronological Structure,Reading,Advanced,0.45,SK015
+SK017,Evaluate Counterarguments,Reading,Advanced,0.45,SK016
+SK018,Integrate Complex Passage Themes,Reading,Advanced,0.45,SK017
+SK019,Identify Textual Evidence,Evidence,Basic,1.0,
+SK020,Match Evidence to Claim,Evidence,Basic,1.0,SK019
+SK021,Evaluate Evidence Relevance,Evidence,Basic,1.0,SK020
+SK022,Command of Evidence (Textual),Evidence,Intermediate,0.75,SK021
+SK023,Compare Quantitative and Textual Data,Evidence,Intermediate,0.75,SK022
+SK024,Interpret Charts in Context,Evidence,Intermediate,0.75,SK023
+SK025,Evaluate Data Support for Claims,Evidence,Intermediate,0.75,SK024
+SK026,Identify Evidence Gaps,Evidence,Intermediate,0.75,SK025
+SK027,Strengthen Arguments with Evidence,Evidence,Advanced,0.45,SK026
+SK028,Weaken Arguments via Counterevidence,Evidence,Advanced,0.45,SK027
+SK029,Synthesize Cross-Source Evidence,Evidence,Advanced,0.45,SK028
+SK030,Evaluate Statistical Claims in Passages,Evidence,Advanced,0.45,SK029
+SK031,Subject-Verb Agreement,Grammar,Basic,1.0,
+SK032,Pronoun-Antecedent Agreement,Grammar,Basic,1.0,SK031
+SK033,Verb Tense Consistency,Grammar,Basic,1.0,SK032
+SK034,Sentence Boundaries (Fragments/Run-ons),Grammar,Basic,1.0,SK033
+SK035,Comma Usage with Clauses,Grammar,Basic,1.0,SK034
+SK036,Apostrophe and Possessives,Grammar,Intermediate,0.75,SK035
+SK037,Modifier Placement,Grammar,Intermediate,0.75,SK036
+SK038,Parallel Structure,Grammar,Intermediate,0.75,SK037
+SK039,Punctuation with Introductory Elements,Grammar,Intermediate,0.75,SK038
+SK040,Semicolon and Colon Usage,Grammar,Intermediate,0.75,SK039
+SK041,Dangling and Misplaced Modifiers,Grammar,Intermediate,0.75,SK040
+SK042,Idiom and Preposition Usage,Grammar,Advanced,0.45,SK041
+SK043,Comparative and Superlative Forms,Grammar,Advanced,0.45,SK042
+SK044,Subjunctive Mood,Grammar,Advanced,0.45,SK043
+SK045,Complex Sentence Revision,Grammar,Advanced,0.45,SK044
+SK046,Words in Context (Basic),Vocabulary,Basic,1.0,
+SK047,Determine Word Meaning from Context,Vocabulary,Basic,1.0,SK046
+SK048,Distinguish Denotation and Connotation,Vocabulary,Basic,1.0,SK047
+SK049,Analyze Word Choice Effects,Vocabulary,Intermediate,0.75,SK048
+SK050,Precision in Word Selection,Vocabulary,Intermediate,0.75,SK049
+SK051,Domain-Specific Vocabulary,Vocabulary,Intermediate,0.75,SK050
+SK052,Multiple-Meaning Words,Vocabulary,Intermediate,0.75,SK051
+SK053,Tone-Shifting Vocabulary,Vocabulary,Advanced,0.45,SK052
+SK054,Academic Vocabulary in Arguments,Vocabulary,Advanced,0.45,SK053
+SK055,Nuanced Synonym Selection,Vocabulary,Advanced,0.45,SK054
+SK056,Sentence Combination,Writing,Basic,1.0,
+SK057,Concision and Clarity,Writing,Basic,1.0,SK056
+SK058,Logical Transitions,Writing,Basic,1.0,SK057
+SK059,Organization of Ideas,Writing,Intermediate,0.75,SK058
+SK060,Effective Introductions,Writing,Intermediate,0.75,SK059
+SK061,Effective Conclusions,Writing,Intermediate,0.75,SK060
+SK062,Development with Supporting Details,Writing,Intermediate,0.75,SK061
+SK063,Coherence Across Paragraphs,Writing,Advanced,0.45,SK062
+SK064,Style and Formality,Writing,Advanced,0.45,SK063
+SK065,Global Revision for Purpose,Writing,Advanced,0.45,SK064
+SK066,Identify Rhetorical Situation,Rhetoric,Basic,1.0,
+SK067,Analyze Author's Purpose,Rhetoric,Basic,1.0,SK066
+SK068,Evaluate Persuasive Techniques,Rhetoric,Intermediate,0.75,SK067
+SK069,Analyze Structure and Function,Rhetoric,Intermediate,0.75,SK068
+SK070,Compare Rhetorical Strategies,Rhetoric,Intermediate,0.75,SK069
+SK071,Evaluate Audience Awareness,Rhetoric,Advanced,0.45,SK070
+SK072,Synthesize Rhetorical Analysis,Rhetoric,Advanced,0.45,SK071
