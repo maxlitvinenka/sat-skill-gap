@@ -32,6 +32,10 @@ cd frontend && npm install && npm run dev
 
 Open **http://localhost:5173** — shows tested skills, expandable item responses, then predictions.
 
+### For school project reviewers
+
+The dashboard includes an expandable section **"How this data is built (linear algebra step-by-step)"** at the top. It explains where every number comes from (Python-generated CSVs, not hand-entered frontend values) and shows **live worked examples** for the selected student: matrix dimensions, a skill aggregation calculation, dot product / norm / cosine similarity breakdown, and priority formula. Switch students to see the examples update.
+
 ## Data flow (response-based)
 
 ```

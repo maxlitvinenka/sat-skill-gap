@@ -7,6 +7,7 @@ import {
   Users,
 } from "lucide-react";
 import { SyntheticDataBanner } from "@/components/SyntheticDataBanner";
+import { MethodologyWalkthrough } from "@/components/MethodologyWalkthrough";
 import { RecommendationsTable } from "@/components/RecommendationsTable";
 import { TopSkillsChart } from "@/components/TopSkillsChart";
 import { PeerSimilarityChart } from "@/components/PeerSimilarityChart";
@@ -97,7 +98,13 @@ export function SkillGapDashboard() {
           }
         />
 
-        <section className="space-y-3">
+        <MethodologyWalkthrough
+          meta={data.meta}
+          demo={studentData.methodologyDemo}
+          studentId={studentId}
+        />
+
+        <section id="tested-skills" className="space-y-3 scroll-mt-8">
           <SectionHeading
             title="Tested skills & item responses"
             description="Expand any skill to see MCQ attempts. Mastery % = correct ÷ items attempted."
@@ -155,7 +162,7 @@ export function SkillGapDashboard() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div id="recommendations" className="grid gap-6 lg:grid-cols-2 scroll-mt-8">
           <div className="space-y-3">
             <SectionHeading
               title="Priority recommendations (untested skills)"
@@ -166,12 +173,9 @@ export function SkillGapDashboard() {
           <TopSkillsChart rows={studentData.recommendations} />
         </div>
 
-        <PeerSimilarityChart peers={studentData.peers} />
-
-        <p className="text-meta text-center pb-4">
-          Linear algebra: response matrix R (students × items) aggregates to skill matrix S via Q;
-          cosine similarity on S uses dot products and norms; predictions are weighted peer averages.
-        </p>
+        <div id="peer-similarity" className="scroll-mt-8">
+          <PeerSimilarityChart peers={studentData.peers} />
+        </div>
       </div>
     </div>
   );

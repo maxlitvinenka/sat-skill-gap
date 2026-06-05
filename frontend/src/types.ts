@@ -47,11 +47,48 @@ export interface StudentSummary {
   interpretation: string;
 }
 
+export interface MethodologyDemo {
+  randomSeed: number;
+  matrixShapes: { R: string; Q: string; S: string };
+  dataFiles: string[];
+  notRandomNote: string;
+  skillAggregationExample: {
+    skillName: string;
+    correct: number;
+    attempted: number;
+    mastery: number;
+    formula: string;
+  } | null;
+  studentVector: {
+    dimension: number;
+    observedCount: number;
+    untestedCount: number;
+    totalItemsAttempted: number;
+  };
+  similarityExample: {
+    peerStudentId: string;
+    sharedSkills: number;
+    dotProduct: number;
+    normU: number;
+    normV: number;
+    cosineSimilarity: number;
+  } | null;
+  predictionExample: {
+    skillName: string;
+    predictedMastery: number;
+    foundationalWeight: number;
+    priorityScore: number;
+    peersWithSkill: number;
+    priorityFormula: string;
+  } | null;
+}
+
 export interface StudentDashboard {
   summary: StudentSummary;
   observedWork: ObservedSkillWork[];
   recommendations: Recommendation[];
   peers: Peer[];
+  methodologyDemo?: MethodologyDemo;
 }
 
 export interface StudentMeta {
@@ -68,9 +105,12 @@ export interface DashboardData {
     isSynthetic: boolean;
     algorithm: string;
     scoreSource?: string;
+    randomSeed?: number;
     nStudents: number;
     nSkills: number;
     nItems?: number;
+    dataFiles?: string[];
+    pipelineSteps?: string[];
   };
   students: StudentMeta[];
   defaultStudentId: string;

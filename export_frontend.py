@@ -6,7 +6,26 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from lib import N_SKILLS, analyze_student, run_pipeline
+from lib import N_SKILLS, RANDOM_SEED, analyze_student, build_methodology_demo, run_pipeline
+
+
+def _export_methodology_demo(result, idx, analysis) -> dict:
+    demo = build_methodology_demo(result, idx, analysis)
+    return {
+        "randomSeed": demo["randomSeed"],
+        "matrixShapes": demo["matrixShapes"],
+        "dataFiles": demo["dataFiles"],
+        "notRandomNote": demo["notRandomNote"],
+        "skillAggregationExample": demo["skillAggregationExample"],
+        "studentVector": {
+            "dimension": demo["studentVector"]["dimension"],
+            "observedCount": demo["studentVector"]["observedCount"],
+            "untestedCount": demo["studentVector"]["untestedCount"],
+            "totalItemsAttempted": demo["studentVector"]["totalItemsAttempted"],
+        },
+        "similarityExample": demo["similarityExample"],
+        "predictionExample": demo["predictionExample"],
+    }
 
 
 def export_dashboard(
@@ -103,6 +122,7 @@ def export_dashboard(
                 }
                 for p in analysis["peers"]
             ],
+            "methodologyDemo": _export_methodology_demo(result, idx, analysis),
         }
 
     payload = {
@@ -111,9 +131,23 @@ def export_dashboard(
             "isSynthetic": True,
             "algorithm": "cosine-similarity",
             "scoreSource": "item-responses",
+            "randomSeed": RANDOM_SEED,
             "nStudents": len(result.student_ids),
             "nSkills": N_SKILLS,
             "nItems": len(result.item_ids),
+            "dataFiles": [
+                "data/item_bank.csv",
+                "data/student_responses.csv",
+                "data/synthetic_student_scores.csv",
+            ],
+            "pipelineSteps": [
+                "Generate 216 synthetic MCQs (items.py)",
+                "Simulate student responses → matrix R",
+                "Aggregate R·Q → skill matrix S (% correct per skill)",
+                "Cosine similarity on partial skill vectors",
+                "Weighted peer imputation for untested skills",
+                "Priority = (100 − predicted) × foundational weight",
+            ],
         },
         "students": students_meta,
         "defaultStudentId": result.student_ids[result.default_student_idx],

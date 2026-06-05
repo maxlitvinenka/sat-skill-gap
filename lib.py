@@ -424,6 +424,93 @@ def build_observed_work(responses_df: pd.DataFrame, student_id: str) -> list[dic
     return work
 
 
+def build_methodology_demo(
+    result: PipelineResult,
+    student_idx: int,
+    analysis: dict[str, Any],
+) -> dict[str, Any]:
+    """Concrete numbers for the on-site linear algebra walkthrough."""
+    observed_work = analysis["observed_work"]
+
+    skill_ex: dict[str, Any] | None = None
+    if observed_work:
+        ex = observed_work[0]
+        skill_ex = {
+            "skillName": ex["skill_name"],
+            "correct": ex["correct"],
+            "attempted": ex["attempted"],
+            "mastery": ex["mastery"],
+            "formula": f"100 × {ex['correct']}/{ex['attempted']} = {ex['mastery']}%",
+        }
+
+    sim_ex: dict[str, Any] | None = None
+    if analysis["peers"]:
+        peer_id = analysis["peers"][0]["student_id"]
+        peer_idx = result.student_ids.index(peer_id)
+        shared = result.mask[student_idx] & result.mask[peer_idx]
+        u = result.scores[student_idx, shared]
+        v = result.scores[peer_idx, shared]
+        dot = float(np.dot(u, v))
+        norm_u = float(np.linalg.norm(u))
+        norm_v = float(np.linalg.norm(v))
+        sim = dot / (norm_u * norm_v) if norm_u > 0 and norm_v > 0 else 0.0
+        sim_ex = {
+            "peerStudentId": peer_id,
+            "sharedSkills": int(shared.sum()),
+            "dotProduct": round(dot, 2),
+            "normU": round(norm_u, 2),
+            "normV": round(norm_v, 2),
+            "cosineSimilarity": round(sim, 4),
+        }
+
+    pred_ex: dict[str, Any] | None = None
+    if analysis["recommendations"]:
+        top = analysis["recommendations"][0]
+        skill_j = next(i for i, s in enumerate(result.skills) if s.skill_id == top["skill_id"])
+        peers_with_skill = int(
+            (result.mask[:, skill_j] & (np.arange(len(result.student_ids)) != student_idx)).sum()
+        )
+        pred_ex = {
+            "skillName": top["skill_name"],
+            "predictedMastery": top["predicted_mastery"],
+            "foundationalWeight": top["foundational_weight"],
+            "priorityScore": top["priority_score"],
+            "peersWithSkill": peers_with_skill,
+            "priorityFormula": (
+                f"(100 − {top['predicted_mastery']:.0f}) × {top['foundational_weight']:.2f} "
+                f"= {top['priority_score']:.1f}"
+            ),
+        }
+
+    return {
+        "randomSeed": RANDOM_SEED,
+        "matrixShapes": {
+            "R": f"{N_STUDENTS}×{len(result.item_ids)}",
+            "Q": f"{len(result.item_ids)}×{N_SKILLS}",
+            "S": f"{N_STUDENTS}×{N_SKILLS}",
+        },
+        "dataFiles": [
+            "data/item_bank.csv",
+            "data/student_responses.csv",
+            "data/synthetic_student_scores.csv",
+        ],
+        "notRandomNote": (
+            "Every mastery percentage equals (# correct MCQ items) ÷ (# attempted) for that skill. "
+            "Hidden latent profiles only set P(correct) when items are generated offline in Python — "
+            "they are never shown as scores on this page."
+        ),
+        "skillAggregationExample": skill_ex,
+        "studentVector": {
+            "dimension": N_SKILLS,
+            "observedCount": analysis["summary"]["observed_skills"],
+            "untestedCount": analysis["summary"]["untested_skills"],
+            "totalItemsAttempted": analysis["summary"]["total_items_attempted"],
+        },
+        "similarityExample": sim_ex,
+        "predictionExample": pred_ex,
+    }
+
+
 def run_pipeline(seed: int = RANDOM_SEED) -> PipelineResult:
     rng = np.random.default_rng(seed)
     write_skill_metadata(Path("data/skill_metadata.csv"))
