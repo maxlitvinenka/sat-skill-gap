@@ -24,16 +24,16 @@ export function TopSkillsChart({ rows }: { rows: Recommendation[] }) {
   }));
 
   return (
-    <Card className="h-full">
+    <Card>
       <CardHeader>
         <CardTitle>Top recommended skills</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={320} aria-label="Top priority skills bar chart">
-          <BarChart data={data} layout="vertical" margin={{ left: 8, right: 16 }}>
+        <ResponsiveContainer width="100%" height={360} aria-label="Top priority skills bar chart">
+          <BarChart data={data} layout="vertical" margin={{ left: 8, right: 24 }}>
             <CartesianGrid {...chartGridProps} horizontal={false} />
             <XAxis type="number" {...chartAxisProps} />
-            <YAxis type="category" dataKey="name" width={120} {...chartAxisProps} />
+            <YAxis type="category" dataKey="name" width={160} {...chartAxisProps} />
             <Tooltip
               content={
                 <ReadingRoomsTooltip

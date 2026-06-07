@@ -158,7 +158,7 @@ export function SkillGapDashboard() {
           </CardContent>
         </Card>
 
-        <div id="recommendations" className="grid gap-6 lg:grid-cols-2 scroll-mt-8">
+        <section id="recommendations" className="space-y-6 scroll-mt-8">
           <div className="space-y-3">
             <SectionHeading
               title="Priority recommendations (untested skills)"
@@ -167,7 +167,7 @@ export function SkillGapDashboard() {
             <RecommendationsTable rows={studentData.recommendations} />
           </div>
           <TopSkillsChart rows={studentData.recommendations} />
-        </div>
+        </section>
 
         <div id="peer-similarity" className="scroll-mt-8">
           <PeerSimilarityChart peers={studentData.peers} />
