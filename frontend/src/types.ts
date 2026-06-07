@@ -27,6 +27,8 @@ export interface Recommendation {
   category: string;
   level: string;
   predictedMastery: number;
+  neighborPred?: number | null;
+  relatedPred?: number | null;
   foundationalWeight: number;
   priorityScore: number;
   reason: string;
@@ -35,7 +37,6 @@ export interface Recommendation {
 export interface Peer {
   studentId: string;
   similarity: number;
-  itemSimilarity?: number;
 }
 
 export interface StudentSummary {
@@ -68,14 +69,16 @@ export interface MethodologyDemo {
   similarityExample: {
     peerStudentId: string;
     sharedSkills: number;
-    dotProduct: number;
-    normU: number;
-    normV: number;
-    cosineSimilarity: number;
+    squaredDistance: number;
+    kernelValue: number;
+    sigma: number;
+    alpha: number;
   } | null;
   predictionExample: {
     skillName: string;
     predictedMastery: number;
+    neighborPrediction?: number | null;
+    relatedPrediction?: number | null;
     foundationalWeight: number;
     priorityScore: number;
     peersWithSkill: number;
@@ -111,6 +114,9 @@ export interface DashboardData {
     nItems?: number;
     dataFiles?: string[];
     pipelineSteps?: string[];
+    kernelSigma?: number;
+    kNeighbors?: number;
+    propagationAlpha?: number;
   };
   students: StudentMeta[];
   defaultStudentId: string;

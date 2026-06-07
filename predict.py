@@ -7,7 +7,12 @@ import argparse
 from pathlib import Path
 
 from export_frontend import export_dashboard
-from lib import analyze_student, run_pipeline, save_figures
+from lib import (
+    analyze_student,
+    build_predicted_missing_skills_df,
+    run_pipeline,
+    save_figures,
+)
 
 
 def main() -> None:
@@ -34,6 +39,18 @@ def main() -> None:
     import pandas as pd
 
     pd.DataFrame(recs).to_csv(out_csv, index=False)
+
+    missing_df = build_predicted_missing_skills_df(
+        analysis["predictions"],
+        result.mask,
+        idx,
+        result.skills,
+        analysis["breakdown"],
+        sid,
+    )
+    missing_csv = Path("output") / "predicted_missing_skills.csv"
+    missing_df.to_csv(missing_csv, index=False)
+
     save_figures(result, idx, analysis)
 
     print(f"Target student: {sid}")
@@ -42,6 +59,7 @@ def main() -> None:
           f"Untested: {analysis['summary']['untested_skills']}")
     print(analysis["summary"]["interpretation"])
     print(f"\nTop 5 recommendations written to {out_csv}")
+    print(f"All missing-skill predictions written to {missing_csv}")
     for r in recs[:5]:
         print(
             f"  #{r['rank']} {r['skill_name']} — priority {r['priority_score']:.1f} "

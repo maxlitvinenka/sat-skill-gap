@@ -1,4 +1,4 @@
-# Foundational SAT Skill Gap Prediction
+# Foundational SAT Skill Gap Prediction Using Kernel k-NN and Label Propagation
 
 **Standalone prototype — synthetic data only.** Not connected to Reading Rooms production.
 
@@ -20,8 +20,9 @@ Generates:
 - `data/item_bank.csv` — 216 synthetic MCQs (3 per skill)
 - `data/student_responses.csv` — every item attempt (stem, choice, correct/incorrect)
 - `data/synthetic_student_scores.csv` — skill mastery (% correct), only for tested skills
+- `output/predicted_missing_skills.csv` — neighbor, related, and final predictions for all untested skills
 - `output/recommendations_*.csv` — ranked gap predictions
-- `output/figures/*.png` — heatmap and bar charts
+- `output/figures/*.png` — heatmap, kernel neighbor heatmap, bar charts
 - `frontend/public/data/dashboard.json` — dashboard data with `observedWork`
 
 ### Localhost dashboard
@@ -34,7 +35,7 @@ Open **http://localhost:5173** — shows tested skills, expandable item response
 
 ### For school project reviewers
 
-The dashboard includes an expandable section **"How this data is built (linear algebra step-by-step)"** at the top. It explains where every number comes from (Python-generated CSVs, not hand-entered frontend values) and shows **live worked examples** for the selected student: matrix dimensions, a skill aggregation calculation, dot product / norm / cosine similarity breakdown, and priority formula. Switch students to see the examples update.
+The dashboard includes an expandable section **"How this data is built (linear algebra step-by-step)"** at the top. It explains where every number comes from (Python-generated CSVs, not hand-entered frontend values) and shows **live worked examples** for the selected student: matrix dimensions, skill aggregation, Gaussian kernel distance/norm, k-NN prediction, label propagation blend, and priority formula. Switch students to see the examples update.
 
 ## Data flow (response-based)
 
@@ -42,7 +43,7 @@ The dashboard includes an expandable section **"How this data is built (linear a
 Item bank → Student MCQ attempts → Response matrix R
 R aggregated via Q → Skill matrix S (% correct per skill)
 Untested skills = no items attempted
-Cosine similarity on S → predict missing skills → priority ranking
+Gaussian kernel k-NN on S → label propagation via skill graph W → priority ranking
 ```
 
 ## Linear algebra
@@ -52,37 +53,43 @@ Cosine similarity on S → predict missing skills → priority ranking
 | Response matrix R | `lib.build_response_matrix()` | students × items, 0/1/NaN |
 | Skill-item matrix Q | `lib.build_skill_item_matrix()` | items × skills, one-hot |
 | Skill matrix S | `responses_to_skill_matrix()` | % correct per (student, skill) |
-| Dot product | `cosine_similarity_observed()` | `np.dot(u, v)` |
-| Norm | same | `np.linalg.norm(u)` |
-| Cosine similarity | peer matching on S (predictions) and R (demo) | angle between vectors |
-| Weighted completion | `predict_missing_scores()` | similarity-weighted peer average |
+| Squared distance | `kernel_similarity_observed()` | `(u−v)ᵀ(u−v)` on shared skills Ω |
+| Gaussian kernel | `gaussian_kernel()` | `exp(−‖u−v‖² / 2σ²)` |
+| Skill affinity W | `build_skill_affinity_matrix()` | prerequisites, category, level neighbors |
+| k-NN prediction | `predict_missing_scores_knn_propagate()` | kernel-weighted peer average |
+| Label propagation | `related_skill_prediction()` | weighted average over related known skills |
+| Blend | same | `α·neighbor + (1−α)·related` |
 
 Latent ability profiles are used **only** to set P(correct) when generating synthetic responses — they are not the displayed score.
 
 ## Algorithm
 
-1. Assign ~60% of skills per student for testing (all 3 items per tested skill)
+1. **100 students**, each tested on **~40 skills** (38–42), all 3 items per tested skill
 2. Simulate MCQ responses from latent ability + item difficulty
 3. **S[i,j] = 100 × (# correct / # attempted)** for tested skills
-4. Cosine similarity on observed skill dimensions
-5. Priority: `(100 - predicted) × foundational_weight` for untested skills
+4. Build skill affinity graph **W** (prerequisites, same category, adjacent level)
+5. **Gaussian kernel** on shared known skills; **k=15** nearest neighbors
+6. For each missing skill: blend neighbor prediction (α=0.7) with related-skill propagation
+7. Priority: `(100 - predicted) × foundational_weight` for untested skills
 
 ## Assignment requirements
 
-1. **Non-trivial linear algebra:** R, Q, S matrices; vectors; dot products; norms; cosine similarity; weighted imputation.
+1. **Non-trivial linear algebra:** R, Q, S matrices; student vectors; distances/norms; Gaussian kernel; weighted k-NN; label propagation; missing-entry prediction.
 2. **Real problem:** Cannot test every SAT skill monthly — surface hidden foundational gaps.
-3. **Verifiable artifacts:** Item bank, response log, derived scores, notebook, CSVs, PNGs, dashboard JSON.
+3. **Verifiable artifacts:** Item bank, response log, derived scores, `predicted_missing_skills.csv`, notebook, PNGs, dashboard JSON.
+
+Optional future extension: matrix factorization (PCA/SVD) — not used in this prototype.
 
 ## Project structure
 
 ```
 items.py               # 216-item MCQ bank
 skills.py              # 72-skill catalog
-lib.py                 # response generation + aggregation + prediction
+lib.py                 # response generation + kernel k-NN + propagation
 predict.py             # CLI
 export_frontend.py     # dashboard JSON with observedWork
 sat_skill_gap_prediction.ipynb
 frontend/              # Reading Rooms styled demo UI
 data/                  # item_bank, student_responses, skill scores
-output/                # recommendations + figures
+output/                # recommendations + predicted_missing_skills + figures
 ```

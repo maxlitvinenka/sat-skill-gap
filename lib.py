@@ -20,13 +20,17 @@ from skills import (
     Skill,
 )
 
-N_STUDENTS = 75
+N_STUDENTS = 100
 N_SKILLS = 72
-MASK_FRACTION = 0.40
+N_KNOWN_TARGET = 40
+MASK_FRACTION = 1 - N_KNOWN_TARGET / N_SKILLS
 RANDOM_SEED = 42
-TOP_K_PEERS = 15
+K_NEIGHBORS = 15
+KERNEL_SIGMA = 25.0
+PROPAGATION_ALPHA = 0.7
 ITEMS_PER_SKILL = 3
 CHOICES = ("A", "B", "C", "D")
+LEVEL_INDEX = {"Basic": 0, "Intermediate": 1, "Advanced": 2}
 
 
 @dataclass
@@ -42,6 +46,7 @@ class PipelineResult:
     item_ids: list[str]
     response_matrix: np.ndarray
     skill_item_matrix: np.ndarray
+    skill_affinity: np.ndarray
 
 
 def skill_metadata_df() -> pd.DataFrame:
@@ -95,11 +100,12 @@ def _pick_wrong_choice(correct: str, rng: np.random.Generator) -> str:
 
 
 def _assign_tested_skills(rng: np.random.Generator, n_skills: int) -> np.ndarray:
-    """Which skill indices each student is tested on (~60% coverage)."""
+    """Which skill indices each student is tested on (~40 skills)."""
     tested = np.zeros((N_STUDENTS, n_skills), dtype=bool)
     for i in range(N_STUDENTS):
-        n_test = int(round(n_skills * (1 - MASK_FRACTION)))
-        n_test = max(25, min(n_skills - 5, n_test))
+        n_test = N_KNOWN_TARGET + int(rng.integers(-2, 3))
+        n_test = max(38, min(42, n_test))
+        n_test = min(n_test, n_skills - 5)
         tested[i, rng.choice(n_skills, size=n_test, replace=False)] = True
     return tested
 
@@ -197,77 +203,138 @@ def responses_to_skill_matrix(
     return scores, mask
 
 
-def cosine_similarity_observed(
+def build_skill_affinity_matrix(skills: list[Skill]) -> np.ndarray:
+    """Skill-neighborhood weights W (row-normalized) for label propagation."""
+    m = len(skills)
+    W = np.zeros((m, m), dtype=float)
+
+    for j, skill in enumerate(skills):
+        for jp, other in enumerate(skills):
+            if j == jp:
+                continue
+            w = 0.0
+            if other.skill_id in skill.prerequisites or skill.skill_id in other.prerequisites:
+                w = max(w, 1.0)
+            if other.category == skill.category:
+                w = max(w, 0.5)
+            if abs(LEVEL_INDEX[skill.level] - LEVEL_INDEX[other.level]) == 1:
+                w = max(w, 0.3)
+            W[j, jp] = w
+
+    for j in range(m):
+        row_sum = W[j].sum()
+        if row_sum > 0:
+            W[j] /= row_sum
+    return W
+
+
+def gaussian_kernel(u: np.ndarray, v: np.ndarray, sigma: float = KERNEL_SIGMA) -> float:
+    """K(u,v) = exp(-||u-v||^2 / (2*sigma^2)) using dot product on difference vector."""
+    diff = u - v
+    sq_dist = float(np.dot(diff, diff))
+    return float(np.exp(-sq_dist / (2 * sigma**2)))
+
+
+def kernel_similarity_observed(
     target: np.ndarray,
     peer: np.ndarray,
-    observed: np.ndarray,
+    shared_mask: np.ndarray,
+    sigma: float = KERNEL_SIGMA,
+) -> tuple[float, float]:
+    """Return (kernel value, squared Euclidean distance) on shared known skills."""
+    u = target[shared_mask]
+    v = peer[shared_mask]
+    if len(u) < 5:
+        return 0.0, 0.0
+    diff = u - v
+    sq_dist = float(np.dot(diff, diff))
+    k = float(np.exp(-sq_dist / (2 * sigma**2)))
+    return k, sq_dist
+
+
+def related_skill_prediction(
+    target_scores: np.ndarray,
+    target_mask: np.ndarray,
+    skill_j: int,
+    W: np.ndarray,
 ) -> float:
-    idx = observed
-    u = target[idx]
-    v = peer[idx]
-    norm_u = np.linalg.norm(u)
-    norm_v = np.linalg.norm(v)
-    if norm_u == 0 or norm_v == 0:
-        return 0.0
-    return float(np.dot(u, v) / (norm_u * norm_v))
+    """Propagate from related known skills using affinity row W[j]."""
+    weights = W[skill_j] * target_mask.astype(float)
+    total = weights.sum()
+    if total <= 0:
+        return float("nan")
+    return float(np.dot(weights, target_scores) / total)
 
 
-def item_cosine_similarity(
-    R: np.ndarray,
-    target_idx: int,
-    peer_idx: int,
-) -> float:
-    """Cosine similarity on shared attempted items (both layers demo)."""
-    u = R[target_idx]
-    v = R[peer_idx]
-    shared = ~np.isnan(u) & ~np.isnan(v)
-    if shared.sum() < 5:
-        return 0.0
-    return cosine_similarity_observed(u, v, shared)
-
-
-def predict_missing_scores(
+def predict_missing_scores_knn_propagate(
     scores: np.ndarray,
     mask: np.ndarray,
     target_idx: int,
-    top_k: int = TOP_K_PEERS,
-) -> tuple[np.ndarray, np.ndarray]:
+    W: np.ndarray,
+    top_k: int = K_NEIGHBORS,
+    sigma: float = KERNEL_SIGMA,
+    alpha: float = PROPAGATION_ALPHA,
+) -> tuple[np.ndarray, np.ndarray, dict[int, dict[str, float]]]:
+    """
+    Kernel k-NN neighbor prediction blended with skill-neighborhood propagation.
+    Returns final predictions, per-student kernel sims, and per-skill breakdown.
+    """
     n, m = scores.shape
     target = scores[target_idx]
     target_obs = mask[target_idx]
 
-    sims = np.zeros(n, dtype=float)
+    kernel_sims = np.zeros(n, dtype=float)
     for i in range(n):
         if i == target_idx:
             continue
-        peer_obs = mask[i]
-        shared = target_obs & peer_obs
+        shared = target_obs & mask[i]
         if shared.sum() < 5:
-            sims[i] = 0.0
+            kernel_sims[i] = 0.0
             continue
-        sims[i] = cosine_similarity_observed(target, scores[i], shared)
+        k, _ = kernel_similarity_observed(target, scores[i], shared, sigma)
+        kernel_sims[i] = k
 
     predictions = np.full(m, np.nan)
+    breakdown: dict[int, dict[str, float]] = {}
+
     for j in range(m):
         if target_obs[j]:
             predictions[j] = target[j]
             continue
+
+        neighbor_pred = float("nan")
         peer_mask = mask[:, j] & (np.arange(n) != target_idx)
         peer_idxs = np.where(peer_mask)[0]
-        if len(peer_idxs) == 0:
-            continue
-        peer_sims = sims[peer_idxs]
-        positive = peer_sims > 0
-        if not positive.any():
-            continue
-        peer_idxs = peer_idxs[positive]
-        peer_sims = peer_sims[positive]
-        order = np.argsort(peer_sims)[::-1][:top_k]
-        chosen = peer_idxs[order]
-        weights = peer_sims[order]
-        predictions[j] = np.dot(weights, scores[chosen, j]) / weights.sum()
+        if len(peer_idxs) > 0:
+            peer_kernels = kernel_sims[peer_idxs]
+            positive = peer_kernels > 0
+            if positive.any():
+                peer_idxs = peer_idxs[positive]
+                peer_kernels = peer_kernels[positive]
+                order = np.argsort(peer_kernels)[::-1][:top_k]
+                chosen = peer_idxs[order]
+                weights = peer_kernels[order]
+                neighbor_pred = float(np.dot(weights, scores[chosen, j]) / weights.sum())
 
-    return predictions, sims
+        related_pred = related_skill_prediction(target, target_obs, j, W)
+
+        if not np.isnan(neighbor_pred) and not np.isnan(related_pred):
+            final = alpha * neighbor_pred + (1 - alpha) * related_pred
+        elif not np.isnan(neighbor_pred):
+            final = neighbor_pred
+        elif not np.isnan(related_pred):
+            final = related_pred
+        else:
+            continue
+
+        predictions[j] = final
+        breakdown[j] = {
+            "neighbor_pred": round(neighbor_pred, 1) if not np.isnan(neighbor_pred) else None,
+            "related_pred": round(related_pred, 1) if not np.isnan(related_pred) else None,
+            "final_pred": round(final, 1),
+        }
+
+    return predictions, kernel_sims, breakdown
 
 
 def _observed_skill_stats(responses_df: pd.DataFrame, student_id: str) -> dict[str, dict[str, Any]]:
@@ -283,12 +350,49 @@ def _observed_skill_stats(responses_df: pd.DataFrame, student_id: str) -> dict[s
     return stats
 
 
+def build_predicted_missing_skills_df(
+    predictions: np.ndarray,
+    mask: np.ndarray,
+    target_idx: int,
+    skills: list[Skill],
+    breakdown: dict[int, dict[str, float]],
+    student_id: str,
+) -> pd.DataFrame:
+    rows = []
+    for j, skill in enumerate(skills):
+        if mask[target_idx, j]:
+            continue
+        pred = predictions[j]
+        if np.isnan(pred):
+            continue
+        bd = breakdown.get(j, {})
+        neighbor = bd.get("neighbor_pred")
+        related = bd.get("related_pred")
+        priority = (100 - pred) * skill.foundational_weight
+        rows.append(
+            {
+                "student_id": student_id,
+                "skill_id": skill.skill_id,
+                "skill_name": skill.skill_name,
+                "category": skill.category,
+                "level": skill.level,
+                "neighbor_pred": neighbor,
+                "related_pred": related,
+                "final_pred": round(pred, 1),
+                "foundational_weight": skill.foundational_weight,
+                "priority": round(priority, 1),
+            }
+        )
+    return pd.DataFrame(rows).sort_values("priority", ascending=False).reset_index(drop=True)
+
+
 def rank_recommendations(
     predictions: np.ndarray,
     mask: np.ndarray,
     target_idx: int,
     skills: list[Skill],
     observed_stats: dict[str, dict[str, Any]],
+    breakdown: dict[int, dict[str, float]] | None = None,
 ) -> pd.DataFrame:
     rows = []
     observed_cats = {
@@ -313,6 +417,18 @@ def rank_recommendations(
         if np.isnan(pred):
             continue
         priority = (100 - pred) * skill.foundational_weight
+        bd = (breakdown or {}).get(j, {})
+        neighbor = bd.get("neighbor_pred")
+        related = bd.get("related_pred")
+        blend_note = ""
+        if neighbor is not None and related is not None:
+            blend_note = (
+                f" Blended k-NN ({neighbor:.0f}%) and related-skill propagation ({related:.0f}%)."
+            )
+        elif neighbor is not None:
+            blend_note = f" From k-NN peers ({neighbor:.0f}%)."
+        elif related is not None:
+            blend_note = f" From related-skill propagation ({related:.0f}%)."
         rows.append(
             {
                 "skill_id": skill.skill_id,
@@ -320,11 +436,14 @@ def rank_recommendations(
                 "category": skill.category,
                 "level": skill.level,
                 "predicted_mastery": round(pred, 1),
+                "neighbor_pred": neighbor,
+                "related_pred": related,
                 "foundational_weight": skill.foundational_weight,
                 "priority_score": round(priority, 1),
                 "reason": (
                     f"Predicted {pred:.0f}% on untested {skill.level.lower()} {skill.category.lower()} skill;"
-                    f"{weak_hint} similar peers with overlapping {', '.join(sorted(observed_cats)) or 'tested'} skills also struggled here."
+                    f"{blend_note}{weak_hint} Similar students with overlapping "
+                    f"{', '.join(sorted(observed_cats)) or 'tested'} skills also struggled here."
                 ).replace("  ", " "),
             }
         )
@@ -450,17 +569,16 @@ def build_methodology_demo(
         shared = result.mask[student_idx] & result.mask[peer_idx]
         u = result.scores[student_idx, shared]
         v = result.scores[peer_idx, shared]
-        dot = float(np.dot(u, v))
-        norm_u = float(np.linalg.norm(u))
-        norm_v = float(np.linalg.norm(v))
-        sim = dot / (norm_u * norm_v) if norm_u > 0 and norm_v > 0 else 0.0
+        diff = u - v
+        sq_dist = float(np.dot(diff, diff))
+        k_val = float(np.exp(-sq_dist / (2 * KERNEL_SIGMA**2)))
         sim_ex = {
             "peerStudentId": peer_id,
             "sharedSkills": int(shared.sum()),
-            "dotProduct": round(dot, 2),
-            "normU": round(norm_u, 2),
-            "normV": round(norm_v, 2),
-            "cosineSimilarity": round(sim, 4),
+            "squaredDistance": round(sq_dist, 2),
+            "kernelValue": round(k_val, 4),
+            "sigma": KERNEL_SIGMA,
+            "alpha": PROPAGATION_ALPHA,
         }
 
     pred_ex: dict[str, Any] | None = None
@@ -473,6 +591,8 @@ def build_methodology_demo(
         pred_ex = {
             "skillName": top["skill_name"],
             "predictedMastery": top["predicted_mastery"],
+            "neighborPrediction": top.get("neighbor_pred"),
+            "relatedPrediction": top.get("related_pred"),
             "foundationalWeight": top["foundational_weight"],
             "priorityScore": top["priority_score"],
             "peersWithSkill": peers_with_skill,
@@ -528,6 +648,7 @@ def run_pipeline(seed: int = RANDOM_SEED) -> PipelineResult:
     scores, mask = responses_to_skill_matrix(responses_df, student_ids, SKILLS)
     R = build_response_matrix(responses_df, item_ids, student_ids)
     Q = build_skill_item_matrix(item_ids)
+    W = build_skill_affinity_matrix(SKILLS)
 
     default_idx = choose_default_student(scores, mask, SKILLS)
     long_df = scores_to_long_df(scores, mask, student_ids, skill_ids)
@@ -545,31 +666,36 @@ def run_pipeline(seed: int = RANDOM_SEED) -> PipelineResult:
         item_ids=item_ids,
         response_matrix=R,
         skill_item_matrix=Q,
+        skill_affinity=W,
     )
 
 
 def analyze_student(
     result: PipelineResult,
     student_idx: int,
-    top_k: int = TOP_K_PEERS,
+    top_k: int = K_NEIGHBORS,
 ) -> dict[str, Any]:
     sid = result.student_ids[student_idx]
     observed_stats = _observed_skill_stats(result.responses_df, sid)
-    predictions, sims = predict_missing_scores(result.scores, result.mask, student_idx, top_k)
-    recs = rank_recommendations(
-        predictions, result.mask, student_idx, result.skills, observed_stats
+    predictions, kernel_sims, breakdown = predict_missing_scores_knn_propagate(
+        result.scores,
+        result.mask,
+        student_idx,
+        result.skill_affinity,
+        top_k=top_k,
     )
-    peer_order = np.argsort(sims)[::-1]
+    recs = rank_recommendations(
+        predictions, result.mask, student_idx, result.skills, observed_stats, breakdown
+    )
+    peer_order = np.argsort(kernel_sims)[::-1]
     peers = []
     for idx in peer_order:
-        if idx == student_idx or sims[idx] <= 0:
+        if idx == student_idx or kernel_sims[idx] <= 0:
             continue
-        item_sim = item_cosine_similarity(result.response_matrix, student_idx, idx)
         peers.append(
             {
                 "student_id": result.student_ids[idx],
-                "similarity": round(float(sims[idx]), 3),
-                "item_similarity": round(item_sim, 3),
+                "similarity": round(float(kernel_sims[idx]), 3),
             }
         )
         if len(peers) >= 10:
@@ -608,7 +734,8 @@ def analyze_student(
         "peers": peers,
         "observed_work": observed_work,
         "predictions": predictions,
-        "similarities": sims,
+        "similarities": kernel_sims,
+        "breakdown": breakdown,
     }
 
 
@@ -658,9 +785,50 @@ def save_figures(result: PipelineResult, student_idx: int, analysis: dict[str, A
         values = [p["similarity"] for p in peers]
         plt.bar(labels, values, color="#3e5442")
         plt.ylim(0, 1)
-        plt.ylabel("Cosine Similarity (skill vectors)")
-        plt.title("Nearest Similar Students")
+        plt.ylabel("Gaussian kernel similarity")
+        plt.title("Nearest k-NN Students (kernel weights)")
         plt.xticks(rotation=45)
         plt.tight_layout()
         plt.savefig(out / "nearest_peers.png", dpi=150)
         plt.close()
+
+    kernel_sims = analysis["similarities"]
+    peer_order = np.argsort(kernel_sims)[::-1]
+    neighbor_idxs = [
+        idx for idx in peer_order if idx != student_idx and kernel_sims[idx] > 0
+    ][:K_NEIGHBORS]
+    if neighbor_idxs:
+        shared = result.mask[student_idx]
+        shared_skill_idxs = np.where(shared)[0]
+        if len(shared_skill_idxs) > 0 and len(neighbor_idxs) > 0:
+            row_labels = [result.student_ids[student_idx]] + [
+                result.student_ids[i] for i in neighbor_idxs
+            ]
+            heat_data = np.vstack(
+                [
+                    result.scores[student_idx, shared_skill_idxs],
+                    *[result.scores[i, shared_skill_idxs] for i in neighbor_idxs],
+                ]
+            )
+            col_labels = [
+                result.skills[j].skill_name[:18] for j in shared_skill_idxs[:25]
+            ]
+            display_data = heat_data[:, :25]
+            plt.figure(figsize=(14, max(4, len(row_labels) * 0.5)))
+            sns.heatmap(
+                display_data,
+                cmap="YlGnBu",
+                vmin=0,
+                vmax=100,
+                annot=True,
+                fmt=".0f",
+                cbar_kws={"label": "Mastery % on shared skills"},
+                xticklabels=col_labels,
+                yticklabels=row_labels,
+            )
+            plt.title("Target + k-NN Neighbors on Shared Known Skills")
+            plt.xlabel("Shared skills (subset)")
+            plt.ylabel("Students")
+            plt.tight_layout()
+            plt.savefig(out / "kernel_neighbor_heatmap.png", dpi=150)
+            plt.close()

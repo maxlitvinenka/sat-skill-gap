@@ -77,6 +77,9 @@ export function MethodologyWalkthrough({
   studentId: string;
 }) {
   const [open, setOpen] = useState(true);
+  const sigma = demo?.similarityExample?.sigma ?? meta.kernelSigma ?? 25;
+  const alpha = demo?.similarityExample?.alpha ?? meta.propagationAlpha ?? 0.7;
+  const k = meta.kNeighbors ?? 15;
 
   return (
     <Card className="border-2 border-brand-gold/30">
@@ -114,7 +117,7 @@ export function MethodologyWalkthrough({
           <Step
             number={1}
             title="Where the initial data comes from"
-            description="The showcase uses synthetic SAT-style data only — no real students. Python scripts generate an item bank, simulate MCQ responses for 75 students, and write CSV files before this page loads."
+            description="The showcase uses synthetic SAT-style data only — no real students. Python scripts generate an item bank, simulate MCQ responses for 100 students (~40 tested skills each), and write CSV files before this page loads."
             live={
               <LiveExample>
                 <p>
@@ -131,7 +134,7 @@ export function MethodologyWalkthrough({
           <Step
             number={2}
             title="Item responses → response matrix R"
-            description={`Each student attempts ~3 questions per tested skill. Matrix R has shape ${demo?.matrixShapes.R ?? "75×216"}: row = one student, column = one item. Entry is 1 (correct), 0 (wrong), or missing if never attempted.`}
+            description={`Each student attempts ~3 questions per tested skill. Matrix R has shape ${demo?.matrixShapes.R ?? "100×216"}: row = one student, column = one item. Entry is 1 (correct), 0 (wrong), or missing if never attempted.`}
             formula={
               <Formula>{`R[i,k] ∈ {0, 1, NaN}   (student i, item k)`}</Formula>
             }
@@ -176,7 +179,7 @@ Q maps items → skills (${demo?.matrixShapes.Q ?? "216×72"})`}</Formula>
           <Step
             number={4}
             title="Each student is a vector in ℝ⁷²"
-            description="Row i of S is a 72-dimensional skill vector. Coordinates are known only for tested skills; untested skills are missing (not filled with random values)."
+            description="Row i of S is a 72-dimensional skill vector. Coordinates are known only for tested skills (~40); untested skills are missing (not filled with random values)."
             formula={
               <Formula>{`s_i = (S[i,1], S[i,2], …, S[i,72]) ∈ ℝ^72`}</Formula>
             }
@@ -194,13 +197,12 @@ Q maps items → skills (${demo?.matrixShapes.Q ?? "216×72"})`}</Formula>
 
           <Step
             number={5}
-            title="Cosine similarity (dot product + norm)"
-            description="To compare two students, we use only skills both have been tested on (set Ω). Cosine similarity measures the angle between their partial skill vectors."
+            title="Gaussian kernel on shared skills (distance + norm)"
+            description="To compare two students, we use only skills both have been tested on (set Ω). Euclidean distance ||u−v||² is computed via dot product on the difference vector, then mapped to a kernel similarity."
             formula={
-              <Formula>{`sim(u, v) = (u · v) / (||u|| × ||v||)
+              <Formula>{`||u − v||² = (u − v)ᵀ(u − v) = Σ (u_k − v_k)²   on shared skills Ω
 
-u · v = Σ u_k × v_k        (dot product on shared skills Ω)
-||u|| = √(u · u)           (vector norm)`}</Formula>
+K(u, v) = exp(−||u − v||² / (2σ²))     σ = ${sigma}`}</Formula>
             }
             live={
               demo?.similarityExample && (
@@ -210,14 +212,11 @@ u · v = Σ u_k × v_k        (dot product on shared skills Ω)
                     {demo.similarityExample.sharedSkills} shared tested skills)
                   </p>
                   <p className="font-mono text-meta">
-                    u·v = {demo.similarityExample.dotProduct} &nbsp;|&nbsp; ||u|| ={" "}
-                    {demo.similarityExample.normU} &nbsp;|&nbsp; ||v|| ={" "}
-                    {demo.similarityExample.normV}
+                    ||u−v||² = {demo.similarityExample.squaredDistance}
                   </p>
                   <p>
-                    sim = {demo.similarityExample.dotProduct} / (
-                    {demo.similarityExample.normU} × {demo.similarityExample.normV}) ={" "}
-                    <strong>{demo.similarityExample.cosineSimilarity}</strong>
+                    K(u,v) = exp(−{demo.similarityExample.squaredDistance} / (2×{demo.similarityExample.sigma}²)) ={" "}
+                    <strong>{demo.similarityExample.kernelValue}</strong>
                   </p>
                 </LiveExample>
               )
@@ -227,12 +226,12 @@ u · v = Σ u_k × v_k        (dot product on shared skills Ω)
 
           <Step
             number={6}
-            title="Predict untested skills (weighted average)"
-            description="For each missing skill j, take peers who were tested on j. Weight their scores on j by cosine similarity to the target student."
+            title="k-NN weighted prediction (collaborative)"
+            description={`For each missing skill j, take the top-${k} peers who were tested on j. Weight their scores on j by Gaussian kernel similarity to the target student.`}
             formula={
-              <Formula>{`predicted_j = Σ (sim_i × peer_score_i) / Σ sim_i
+              <Formula>{`neighbor_pred_j = Σ (K_i × peer_score_i) / Σ K_i
 
-Higher similarity → that peer's score counts more.`}</Formula>
+Higher kernel weight → that peer's score counts more.`}</Formula>
             }
             live={
               demo?.predictionExample && (
@@ -240,10 +239,12 @@ Higher similarity → that peer's score counts more.`}</Formula>
                   <p>
                     Top untested gap: <strong>{demo.predictionExample.skillName}</strong>
                   </p>
-                  <p>
-                    Predicted mastery: <strong>{demo.predictionExample.predictedMastery}%</strong>{" "}
-                    (from {demo.predictionExample.peersWithSkill} peers who took this skill)
-                  </p>
+                  {demo.predictionExample.neighborPrediction != null && (
+                    <p>
+                      k-NN neighbor prediction: <strong>{demo.predictionExample.neighborPrediction}%</strong>{" "}
+                      (from {demo.predictionExample.peersWithSkill} peers who took this skill)
+                    </p>
+                  )}
                 </LiveExample>
               )
             }
@@ -252,6 +253,32 @@ Higher similarity → that peer's score counts more.`}</Formula>
 
           <Step
             number={7}
+            title="Label propagation from related skills"
+            description="A skill affinity graph W connects prerequisites, same-category skills, and adjacent difficulty levels. Missing skills borrow signal from the target's known related skills."
+            formula={
+              <Formula>{`related_pred_j = Σ W[j,j′] × known_score_j′ / Σ W[j,j′]
+
+final_j = α × neighbor_pred + (1 − α) × related_pred     α = ${alpha}`}</Formula>
+            }
+            live={
+              demo?.predictionExample && (
+                <LiveExample>
+                  {demo.predictionExample.relatedPrediction != null && (
+                    <p>
+                      Related-skill propagation: <strong>{demo.predictionExample.relatedPrediction}%</strong>
+                    </p>
+                  )}
+                  <p>
+                    Final blended prediction: <strong>{demo.predictionExample.predictedMastery}%</strong>
+                  </p>
+                </LiveExample>
+              )
+            }
+            seeBelow="#recommendations"
+          />
+
+          <Step
+            number={8}
             title="Priority ranking (what to practice next)"
             description="Low predicted mastery on foundational skills ranks highest. Basic skills have larger foundational weights."
             formula={
@@ -261,7 +288,7 @@ Higher similarity → that peer's score counts more.`}</Formula>
               demo?.predictionExample && (
                 <LiveExample>
                   <p>
-                    #{demo.predictionExample.skillName}:{" "}
+                    {demo.predictionExample.skillName}:{" "}
                     <strong>{demo.predictionExample.priorityFormula}</strong>
                   </p>
                 </LiveExample>

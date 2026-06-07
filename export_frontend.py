@@ -6,7 +6,16 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from lib import N_SKILLS, RANDOM_SEED, analyze_student, build_methodology_demo, run_pipeline
+from lib import (
+    K_NEIGHBORS,
+    KERNEL_SIGMA,
+    N_SKILLS,
+    PROPAGATION_ALPHA,
+    RANDOM_SEED,
+    analyze_student,
+    build_methodology_demo,
+    run_pipeline,
+)
 
 
 def _export_methodology_demo(result, idx, analysis) -> dict:
@@ -108,6 +117,8 @@ def export_dashboard(
                     "category": r["category"],
                     "level": r["level"],
                     "predictedMastery": r["predicted_mastery"],
+                    "neighborPred": r.get("neighbor_pred"),
+                    "relatedPred": r.get("related_pred"),
                     "foundationalWeight": r["foundational_weight"],
                     "priorityScore": r["priority_score"],
                     "reason": r["reason"],
@@ -118,7 +129,6 @@ def export_dashboard(
                 {
                     "studentId": p["student_id"],
                     "similarity": p["similarity"],
-                    "itemSimilarity": p.get("item_similarity", 0),
                 }
                 for p in analysis["peers"]
             ],
@@ -129,9 +139,12 @@ def export_dashboard(
         "meta": {
             "generatedAt": datetime.now(timezone.utc).isoformat(),
             "isSynthetic": True,
-            "algorithm": "cosine-similarity",
+            "algorithm": "kernel-knn-label-propagation",
             "scoreSource": "item-responses",
             "randomSeed": RANDOM_SEED,
+            "kernelSigma": KERNEL_SIGMA,
+            "kNeighbors": K_NEIGHBORS,
+            "propagationAlpha": PROPAGATION_ALPHA,
             "nStudents": len(result.student_ids),
             "nSkills": N_SKILLS,
             "nItems": len(result.item_ids),
@@ -139,13 +152,16 @@ def export_dashboard(
                 "data/item_bank.csv",
                 "data/student_responses.csv",
                 "data/synthetic_student_scores.csv",
+                "output/predicted_missing_skills.csv",
             ],
             "pipelineSteps": [
                 "Generate 216 synthetic MCQs (items.py)",
                 "Simulate student responses → matrix R",
                 "Aggregate R·Q → skill matrix S (% correct per skill)",
-                "Cosine similarity on partial skill vectors",
-                "Weighted peer imputation for untested skills",
+                "Gaussian kernel K(u,v) on shared known skills",
+                "k-NN weighted neighbor prediction for missing skills",
+                "Label propagation from skill affinity graph W",
+                "Blend final = α·neighbor + (1−α)·related",
                 "Priority = (100 − predicted) × foundational weight",
             ],
         },

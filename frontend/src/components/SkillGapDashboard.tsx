@@ -80,7 +80,7 @@ export function SkillGapDashboard() {
         <PageHeading
           eyebrow="Skill Gap Prediction"
           title={`Recommendations for ${studentId}`}
-          description="Skill scores are computed from item responses (% correct). Cosine similarity on partial skill vectors predicts untested gaps."
+          description="Skill scores are computed from item responses (% correct). Gaussian kernel k-NN plus skill-neighborhood label propagation predicts untested gaps."
           icon={<Target className="h-8 w-8 text-brand-gold" />}
           action={
             <Select value={studentId} onValueChange={setStudentId}>
@@ -133,13 +133,9 @@ export function SkillGapDashboard() {
           />
           <StatCard
             icon={<Users className="h-5 w-5" />}
-            label="Nearest peer (skill sim.)"
+            label="Nearest peer (kernel sim.)"
             value={topPeer ? topPeer.similarity.toFixed(3) : "—"}
-            sublabel={
-              topPeer?.itemSimilarity
-                ? `${topPeer.studentId} · item sim. ${topPeer.itemSimilarity.toFixed(3)}`
-                : topPeer?.studentId
-            }
+            sublabel={topPeer?.studentId}
             tone="accent"
           />
         </div>

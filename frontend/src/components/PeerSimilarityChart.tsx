@@ -25,10 +25,10 @@ export function PeerSimilarityChart({ peers }: { peers: Peer[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Nearest similar students</CardTitle>
+        <CardTitle>Nearest k-NN students (kernel similarity)</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={280} aria-label="Peer cosine similarity chart">
+        <ResponsiveContainer width="100%" height={280} aria-label="Peer kernel similarity chart">
           <BarChart data={data} margin={{ bottom: 8 }}>
             <CartesianGrid {...chartGridProps} />
             <XAxis dataKey="name" {...chartAxisProps} />
@@ -38,7 +38,7 @@ export function PeerSimilarityChart({ peers }: { peers: Peer[] }) {
                 <ReadingRoomsTooltip valueFormatter={(v) => v.toFixed(3)} />
               }
             />
-            <Bar dataKey="similarity" name="Cosine similarity" fill={chartPalette[1]} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="similarity" name="Kernel similarity (k-NN)" fill={chartPalette[1]} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
