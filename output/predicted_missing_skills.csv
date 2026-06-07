@@ -1,33 +1,31 @@
 student_id,skill_id,skill_name,category,level,neighbor_pred,related_pred,final_pred,foundational_weight,priority
-S020,SK002,Locate Explicit Details,Reading,Basic,34.6,60.7,42.4,1.0,57.6
-S020,SK066,Identify Rhetorical Situation,Rhetoric,Basic,38.1,59.6,44.5,1.0,55.5
-S020,SK006,Track Argument Development,Reading,Intermediate,38.1,53.8,42.8,0.75,42.9
-S020,SK033,Verb Tense Consistency,Grammar,Basic,52.7,67.4,57.1,1.0,42.9
-S020,SK004,Summarize Passage Main Points,Reading,Basic,69.1,58.9,66.1,1.0,33.9
-S020,SK032,Pronoun-Antecedent Agreement,Grammar,Basic,66.7,65.6,66.4,1.0,33.6
-S020,SK048,Distinguish Denotation and Connotation,Vocabulary,Basic,66.8,70.6,67.9,1.0,32.1
-S020,SK022,Command of Evidence (Textual),Evidence,Intermediate,64.5,47.7,59.5,0.75,30.4
-S020,SK060,Effective Introductions,Writing,Intermediate,64.1,52.3,60.6,0.75,29.6
-S020,SK023,Compare Quantitative and Textual Data,Evidence,Intermediate,65.4,50.6,60.9,0.75,29.3
-S020,SK059,Organization of Ideas,Writing,Intermediate,70.3,52.3,64.9,0.75,26.3
-S020,SK017,Evaluate Counterarguments,Reading,Advanced,38.8,58.5,44.7,0.45,24.9
-S020,SK042,Idiom and Preposition Usage,Grammar,Advanced,35.9,67.4,45.3,0.45,24.6
-S020,SK047,Determine Word Meaning from Context,Vocabulary,Basic,82.6,66.7,77.8,1.0,22.2
-S020,SK041,Dangling and Misplaced Modifiers,Grammar,Intermediate,77.5,56.8,71.3,0.75,21.5
-S020,SK014,Synthesize Multi-Paragraph Ideas,Reading,Advanced,57.4,62.2,58.9,0.45,18.5
-S020,SK010,Predict Author Response,Reading,Intermediate,87.6,52.4,77.0,0.75,17.2
-S020,SK064,Style and Formality,Writing,Advanced,65.0,58.6,63.1,0.45,16.6
-S020,SK072,Synthesize Rhetorical Analysis,Rhetoric,Advanced,66.7,59.6,64.6,0.45,15.9
-S020,SK030,Evaluate Statistical Claims in Passages,Evidence,Advanced,66.3,64.0,65.6,0.45,15.5
-S020,SK018,Integrate Complex Passage Themes,Reading,Advanced,67.2,62.0,65.6,0.45,15.5
-S020,SK056,Sentence Combination,Writing,Basic,92.9,65.9,84.8,1.0,15.2
-S020,SK011,Interpret Figurative Language,Reading,Intermediate,91.4,53.1,79.9,0.75,15.1
-S020,SK027,Strengthen Arguments with Evidence,Evidence,Advanced,69.0,60.4,66.4,0.45,15.1
-S020,SK019,Identify Textual Evidence,Evidence,Basic,95.5,60.1,84.9,1.0,15.1
-S020,SK043,Comparative and Superlative Forms,Grammar,Advanced,66.4,67.4,66.7,0.45,15.0
-S020,SK053,Tone-Shifting Vocabulary,Vocabulary,Advanced,66.9,70.4,67.9,0.45,14.4
-S020,SK044,Subjunctive Mood,Grammar,Advanced,69.5,67.4,68.9,0.45,14.0
-S020,SK069,Analyze Structure and Function,Rhetoric,Intermediate,97.2,44.8,81.5,0.75,13.9
-S020,SK024,Interpret Charts in Context,Evidence,Intermediate,97.0,51.6,83.4,0.75,12.5
-S020,SK009,Resolve Conflicting Information,Reading,Intermediate,97.3,53.1,84.0,0.75,12.0
-S020,SK015,Identify Assumptions,Reading,Advanced,99.1,58.5,86.9,0.45,5.9
+Aaron,SK056,Sentence Combination,Writing,Basic,42.2,66.2,49.4,1.0,50.6
+Aaron,SK067,Analyze Author's Purpose,Rhetoric,Basic,46.7,67.2,52.9,1.0,47.1
+Aaron,SK001,Identify Central Claim / Thesis,Reading,Basic,58.4,69.9,61.9,1.0,38.1
+Aaron,SK034,Sentence Boundaries (Fragments/Run-ons),Grammar,Basic,73.0,59.0,68.8,1.0,31.2
+Aaron,SK002,Locate Explicit Details,Reading,Basic,68.5,69.9,68.9,1.0,31.1
+Aaron,SK023,Compare Quantitative and Textual Data,Evidence,Intermediate,59.9,68.6,62.5,0.75,28.1
+Aaron,SK004,Summarize Passage Main Points,Reading,Basic,74.3,69.7,72.9,1.0,27.1
+Aaron,SK061,Effective Conclusions,Writing,Intermediate,66.2,60.9,64.6,0.75,26.5
+Aaron,SK048,Distinguish Denotation and Connotation,Vocabulary,Basic,73.2,74.5,73.6,1.0,26.4
+Aaron,SK026,Identify Evidence Gaps,Evidence,Intermediate,65.1,67.0,65.7,0.75,25.8
+Aaron,SK019,Identify Textual Evidence,Evidence,Basic,79.2,72.1,77.1,1.0,22.9
+Aaron,SK025,Evaluate Data Support for Claims,Evidence,Intermediate,70.9,67.0,69.7,0.75,22.7
+Aaron,SK003,Determine Paragraph Purpose,Reading,Basic,83.0,69.9,79.1,1.0,20.9
+Aaron,SK069,Analyze Structure and Function,Rhetoric,Intermediate,76.6,63.7,72.7,0.75,20.5
+Aaron,SK036,Apostrophe and Possessives,Grammar,Intermediate,78.1,61.3,73.0,0.75,20.2
+Aaron,SK039,Punctuation with Introductory Elements,Grammar,Intermediate,81.5,62.7,75.9,0.75,18.1
+Aaron,SK066,Identify Rhetorical Situation,Rhetoric,Basic,89.3,67.2,82.7,1.0,17.3
+Aaron,SK049,Analyze Word Choice Effects,Vocabulary,Intermediate,81.1,67.6,77.1,0.75,17.2
+Aaron,SK047,Determine Word Meaning from Context,Vocabulary,Basic,86.8,74.0,83.0,1.0,17.0
+Aaron,SK068,Evaluate Persuasive Techniques,Rhetoric,Intermediate,83.2,63.5,77.3,0.75,17.0
+Aaron,SK060,Effective Introductions,Writing,Intermediate,83.8,62.5,77.4,0.75,16.9
+Aaron,SK006,Track Argument Development,Reading,Intermediate,83.5,66.4,78.4,0.75,16.2
+Aaron,SK009,Resolve Conflicting Information,Reading,Intermediate,83.7,67.8,78.9,0.75,15.8
+Aaron,SK027,Strengthen Arguments with Evidence,Evidence,Advanced,66.3,74.2,68.7,0.45,14.1
+Aaron,SK043,Comparative and Superlative Forms,Grammar,Advanced,70.9,63.8,68.7,0.45,14.1
+Aaron,SK059,Organization of Ideas,Writing,Intermediate,93.3,64.5,84.7,0.75,11.5
+Aaron,SK013,Evaluate Argument Strength,Reading,Advanced,82.6,67.7,78.1,0.45,9.8
+Aaron,SK064,Style and Formality,Writing,Advanced,91.8,68.3,84.8,0.45,6.9
+Aaron,SK018,Integrate Complex Passage Themes,Reading,Advanced,94.0,69.7,86.7,0.45,6.0
+Aaron,SK029,Synthesize Cross-Source Evidence,Evidence,Advanced,95.5,73.7,88.9,0.45,5.0

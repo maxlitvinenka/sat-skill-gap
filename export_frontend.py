@@ -65,7 +65,7 @@ def export_dashboard(
         students_meta.append(
             {
                 "id": sid,
-                "label": f"Student {sid}",
+                "label": sid,
                 "observedCount": observed,
                 "hiddenCount": hidden,
                 "itemCount": item_count,

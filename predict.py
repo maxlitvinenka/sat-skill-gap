@@ -17,7 +17,7 @@ from lib import (
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="SAT skill gap prediction (synthetic data)")
-    parser.add_argument("--student-id", default=None, help="Target student e.g. S042")
+    parser.add_argument("--student-id", default=None, help="Target student name e.g. Emma")
     parser.add_argument("--top-k", type=int, default=15)
     parser.add_argument("--export-frontend", action="store_true", help="Write dashboard.json")
     parser.add_argument("--seed", type=int, default=42)

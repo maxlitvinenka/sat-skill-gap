@@ -32,6 +32,33 @@ ITEMS_PER_SKILL = 3
 CHOICES = ("A", "B", "C", "D")
 LEVEL_INDEX = {"Basic": 0, "Intermediate": 1, "Advanced": 2}
 
+_NAME_POOL = (
+    "Aaliyah", "Aaron", "Abigail", "Adam", "Adrian", "Aiden", "Alex", "Alexis", "Alice", "Amanda",
+    "Amir", "Amy", "Ana", "Andre", "Angela", "Anna", "Anthony", "Ariana", "Arthur", "Ashley",
+    "Austin", "Ava", "Benjamin", "Blake", "Brandon", "Brian", "Brooke", "Caleb", "Cameron", "Carlos",
+    "Carmen", "Carter", "Charlotte", "Chloe", "Chris", "Claire", "Cole", "Daniel", "David", "Diana",
+    "Diego", "Dylan", "Eden", "Elena", "Eli", "Elizabeth", "Ella", "Emily", "Emma", "Ethan",
+    "Eva", "Evan", "Faith", "Felix", "Fiona", "Gabriel", "Grace", "Hannah", "Harper", "Henry",
+    "Ian", "Isaac", "Isabella", "Ivan", "Jack", "Jade", "James", "Jasmine", "Jason", "Jenna",
+    "Jessica", "Jordan", "Jose", "Joshua", "Julia", "Julian", "Justin", "Kai", "Karen", "Kate",
+    "Kevin", "Kim", "Laura", "Leah", "Leo", "Lily", "Logan", "Lucas", "Luis", "Luna",
+    "Madison", "Maria", "Mark", "Mason", "Maya", "Mia", "Michael", "Michelle", "Miles", "Naomi",
+    "Nathan", "Nicholas", "Nicole", "Noah", "Nora", "Oliver", "Olivia", "Oscar", "Owen", "Paige",
+    "Patrick", "Paul", "Peter", "Rachel", "Rebecca", "Riley", "Robert", "Rosa", "Ryan", "Samantha",
+    "Samuel", "Sara", "Sarah", "Sebastian", "Sofia", "Sophia", "Stefan", "Stella", "Stephen", "Susan",
+    "Taylor", "Thomas", "Timothy", "Tyler", "Vanessa", "Victor", "Victoria", "Vincent", "Vivian", "William",
+    "Zoe", "Zoey", "Zachary", "Wyatt", "Wesley", "Walter", "Valerie", "Tristan", "Travis", "Tony",
+)
+
+
+def assign_student_names(rng: np.random.Generator, n: int = N_STUDENTS) -> list[str]:
+    """Deterministic shuffle of synthetic first names (seeded with pipeline RNG)."""
+    if n > len(_NAME_POOL):
+        raise ValueError(f"Need {n} names but pool has {len(_NAME_POOL)}")
+    names = list(_NAME_POOL)
+    rng.shuffle(names)
+    return names[:n]
+
 
 @dataclass
 class PipelineResult:
@@ -114,12 +141,13 @@ def generate_all_responses(
     rng: np.random.Generator,
     latent_profiles: np.ndarray,
     tested_skills: np.ndarray,
+    student_ids: list[str],
 ) -> pd.DataFrame:
     skill_by_id = {s.skill_id: s for s in SKILLS}
     rows: list[dict[str, Any]] = []
 
     for i in range(N_STUDENTS):
-        sid = f"S{i + 1:03d}"
+        sid = student_ids[i]
         latent = latent_profiles[i]
         for j, skill in enumerate(SKILLS):
             if not tested_skills[i, j]:
@@ -637,11 +665,10 @@ def run_pipeline(seed: int = RANDOM_SEED) -> PipelineResult:
     write_item_bank(Path("data/item_bank.csv"))
 
     latent_profiles = np.vstack([_archetype_latent(rng) for _ in range(N_STUDENTS)])
+    student_ids = assign_student_names(rng)
     tested_skills = _assign_tested_skills(rng, N_SKILLS)
-    responses_df = generate_all_responses(rng, latent_profiles, tested_skills)
+    responses_df = generate_all_responses(rng, latent_profiles, tested_skills, student_ids)
     responses_df.to_csv("data/student_responses.csv", index=False)
-
-    student_ids = [f"S{i + 1:03d}" for i in range(N_STUDENTS)]
     skill_ids = [s.skill_id for s in SKILLS]
     item_ids = [i.item_id for i in ITEMS]
 
