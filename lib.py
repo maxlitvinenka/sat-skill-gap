@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -575,6 +576,9 @@ def build_methodology_demo(
     result: PipelineResult,
     student_idx: int,
     analysis: dict[str, Any],
+    sigma: float = KERNEL_SIGMA,
+    alpha: float = PROPAGATION_ALPHA,
+    random_seed: int = RANDOM_SEED,
 ) -> dict[str, Any]:
     """Concrete numbers for the on-site linear algebra walkthrough."""
     observed_work = analysis["observed_work"]
@@ -599,14 +603,14 @@ def build_methodology_demo(
         v = result.scores[peer_idx, shared]
         diff = u - v
         sq_dist = float(np.dot(diff, diff))
-        k_val = float(np.exp(-sq_dist / (2 * KERNEL_SIGMA**2)))
+        k_val = float(np.exp(-sq_dist / (2 * sigma**2)))
         sim_ex = {
             "peerStudentId": peer_id,
             "sharedSkills": int(shared.sum()),
             "squaredDistance": round(sq_dist, 2),
             "kernelValue": round(k_val, 4),
-            "sigma": KERNEL_SIGMA,
-            "alpha": PROPAGATION_ALPHA,
+            "sigma": sigma,
+            "alpha": alpha,
         }
 
     pred_ex: dict[str, Any] | None = None
@@ -630,12 +634,13 @@ def build_methodology_demo(
             ),
         }
 
+    n_students = len(result.student_ids)
     return {
-        "randomSeed": RANDOM_SEED,
+        "randomSeed": random_seed,
         "matrixShapes": {
-            "R": f"{N_STUDENTS}×{len(result.item_ids)}",
+            "R": f"{n_students}×{len(result.item_ids)}",
             "Q": f"{len(result.item_ids)}×{N_SKILLS}",
-            "S": f"{N_STUDENTS}×{N_SKILLS}",
+            "S": f"{n_students}×{N_SKILLS}",
         },
         "dataFiles": [
             "data/item_bank.csv",
@@ -657,6 +662,365 @@ def build_methodology_demo(
         "similarityExample": sim_ex,
         "predictionExample": pred_ex,
     }
+
+
+def build_custom_observed_work(
+    observed_skills: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Synthetic observed work from manual mastery inputs (no MCQ items)."""
+    skill_by_id = {s.skill_id: s for s in SKILLS}
+    work: list[dict[str, Any]] = []
+    for entry in observed_skills:
+        skill_id = entry["skill_id"]
+        mastery = float(entry["mastery"])
+        skill = skill_by_id[skill_id]
+        attempted = 3
+        correct = int(round(mastery / 100.0 * attempted))
+        work.append(
+            {
+                "skill_id": skill_id,
+                "skill_name": skill.skill_name,
+                "category": skill.category,
+                "attempted": attempted,
+                "correct": correct,
+                "mastery": round(mastery, 1),
+                "is_custom_input": True,
+                "items": [],
+            }
+        )
+    work.sort(key=lambda x: x["mastery"])
+    return work
+
+
+def _observed_stats_from_work(work: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {
+        w["skill_id"]: {
+            "attempted": w["attempted"],
+            "correct": w["correct"],
+            "mastery": w["mastery"],
+            "skill_name": w["skill_name"],
+        }
+        for w in work
+    }
+
+
+def inject_custom_student(
+    result: PipelineResult,
+    name: str,
+    observed_skills: list[dict[str, Any]],
+) -> tuple[PipelineResult, int, list[dict[str, Any]]]:
+    """Append a custom student row; returns updated result, index, and observed work."""
+    if name in result.student_ids:
+        raise ValueError(f"Student name already exists: {name}")
+    skill_idx = {s.skill_id: j for j, s in enumerate(result.skills)}
+    new_row_scores = np.zeros(N_SKILLS, dtype=float)
+    new_row_mask = np.zeros(N_SKILLS, dtype=bool)
+    normalized: list[dict[str, Any]] = []
+    for entry in observed_skills:
+        sid = entry["skill_id"]
+        if sid not in skill_idx:
+            raise ValueError(f"Unknown skill: {sid}")
+        j = skill_idx[sid]
+        mastery = float(np.clip(entry["mastery"], 0, 100))
+        new_row_scores[j] = mastery
+        new_row_mask[j] = True
+        normalized.append({"skill_id": sid, "mastery": mastery})
+
+    new_scores = np.vstack([result.scores, new_row_scores])
+    new_mask = np.vstack([result.mask, new_row_mask])
+    new_ids = result.student_ids + [name]
+    new_idx = len(new_ids) - 1
+    observed_work = build_custom_observed_work(normalized)
+    updated = replace(
+        result,
+        scores=new_scores,
+        mask=new_mask,
+        student_ids=new_ids,
+    )
+    return updated, new_idx, observed_work
+
+
+def build_computation_trace(
+    result: PipelineResult,
+    student_idx: int,
+    analysis: dict[str, Any],
+    sigma: float = KERNEL_SIGMA,
+    alpha: float = PROPAGATION_ALPHA,
+    top_k: int = K_NEIGHBORS,
+) -> list[dict[str, Any]]:
+    """Step-by-step trace for the live showcase panel."""
+    steps: list[dict[str, Any]] = []
+    sid = result.student_ids[student_idx]
+    observed = int(result.mask[student_idx].sum())
+    steps.append(
+        {
+            "step": 1,
+            "function": "lib.responses_to_skill_matrix",
+            "codeRef": "S[i,j] = 100 × (# correct) / (# attempted)",
+            "title": "Build partial skill vector",
+            "inputs": {"student": sid, "knownSkills": observed, "totalSkills": N_SKILLS},
+            "output": f"{observed} known coordinates, {N_SKILLS - observed} missing",
+            "latex": r"\mathbf{s}_i \in \mathbb{R}^{72},\; |\Omega| = " + str(observed),
+        }
+    )
+
+    peers = analysis.get("peers") or []
+    if peers:
+        peer_id = peers[0]["student_id"]
+        peer_idx = result.student_ids.index(peer_id)
+        shared = result.mask[student_idx] & result.mask[peer_idx]
+        k_val, sq_dist = kernel_similarity_observed(
+            result.scores[student_idx],
+            result.scores[peer_idx],
+            shared,
+            sigma,
+        )
+        steps.append(
+            {
+                "step": 2,
+                "function": "lib.kernel_similarity_observed",
+                "codeRef": "K(u,v) = exp(-||u-v||² / (2σ²))",
+                "title": "Gaussian kernel on nearest peer",
+                "inputs": {
+                    "peer": peer_id,
+                    "sharedSkills": int(shared.sum()),
+                    "sigma": sigma,
+                    "squaredDistance": round(sq_dist, 2),
+                },
+                "output": round(k_val, 4),
+                "latex": (
+                    rf"\|u-v\|^2 = {sq_dist:.2f},\;"
+                    rf"K(u,v) = \exp\!\left(-\frac{{{sq_dist:.2f}}}{{2 \cdot {sigma}^2}}\right) = {k_val:.4f}"
+                ),
+            }
+        )
+
+    recs = analysis.get("recommendations") or []
+    breakdown = analysis.get("breakdown") or {}
+    if recs:
+        top = recs[0]
+        skill_j = next(i for i, s in enumerate(result.skills) if s.skill_id == top["skill_id"])
+        bd = breakdown.get(skill_j, {})
+        neighbor = bd.get("neighbor_pred")
+        related = bd.get("related_pred")
+        final = top["predicted_mastery"]
+        if neighbor is not None and related is not None:
+            blend_latex = (
+                rf"\hat{{y}}^{{\text{{final}}}} = {alpha} \cdot {neighbor} + "
+                rf"(1-{alpha}) \cdot {related} = {final}"
+            )
+        elif neighbor is not None:
+            blend_latex = rf"\hat{{y}}^{{\text{{final}}}} = {neighbor} \text{{ (k-NN only)}}"
+        elif related is not None:
+            blend_latex = rf"\hat{{y}}^{{\text{{final}}}} = {related} \text{{ (propagation only)}}"
+        else:
+            blend_latex = rf"\hat{{y}}^{{\text{{final}}}} = {final}"
+        steps.append(
+            {
+                "step": 3,
+                "function": "lib.predict_missing_scores_knn_propagate",
+                "codeRef": f"top-{top_k} kernel-weighted peers + skill graph W",
+                "title": f"k-NN + propagation for {top['skill_name']}",
+                "inputs": {
+                    "skill": top["skill_name"],
+                    "k": top_k,
+                    "alpha": alpha,
+                    "neighborPred": neighbor,
+                    "relatedPred": related,
+                },
+                "output": final,
+                "latex": blend_latex,
+            }
+        )
+        steps.append(
+            {
+                "step": 4,
+                "function": "lib.rank_recommendations",
+                "codeRef": "priority = (100 - predicted) × foundational_weight",
+                "title": "Priority ranking",
+                "inputs": {
+                    "predictedMastery": final,
+                    "foundationalWeight": top["foundational_weight"],
+                },
+                "output": top["priority_score"],
+                "latex": (
+                    rf"\text{{priority}} = (100 - {final:.0f}) \times "
+                    rf"{top['foundational_weight']:.2f} = {top['priority_score']:.1f}"
+                ),
+            }
+        )
+
+    return steps
+
+
+def export_methodology_demo(
+    result: PipelineResult,
+    idx: int,
+    analysis: dict[str, Any],
+    sigma: float = KERNEL_SIGMA,
+    alpha: float = PROPAGATION_ALPHA,
+    random_seed: int = RANDOM_SEED,
+) -> dict[str, Any]:
+    demo = build_methodology_demo(result, idx, analysis, sigma=sigma, alpha=alpha, random_seed=random_seed)
+    return {
+        "randomSeed": demo["randomSeed"],
+        "matrixShapes": demo["matrixShapes"],
+        "dataFiles": demo["dataFiles"],
+        "notRandomNote": demo["notRandomNote"],
+        "skillAggregationExample": demo["skillAggregationExample"],
+        "studentVector": {
+            "dimension": demo["studentVector"]["dimension"],
+            "observedCount": demo["studentVector"]["observedCount"],
+            "untestedCount": demo["studentVector"]["untestedCount"],
+            "totalItemsAttempted": demo["studentVector"]["totalItemsAttempted"],
+        },
+        "similarityExample": demo["similarityExample"],
+        "predictionExample": demo["predictionExample"],
+    }
+
+
+def serialize_student_dashboard(
+    result: PipelineResult,
+    idx: int,
+    analysis: dict[str, Any],
+    sigma: float = KERNEL_SIGMA,
+    alpha: float = PROPAGATION_ALPHA,
+    random_seed: int = RANDOM_SEED,
+    computation_trace: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "summary": {
+            "observedSkills": analysis["summary"]["observed_skills"],
+            "untestedSkills": analysis["summary"]["untested_skills"],
+            "totalItemsAttempted": analysis["summary"]["total_items_attempted"],
+            "avgItemsPerSkill": analysis["summary"]["avg_items_per_skill"],
+            "topPriorityScore": analysis["summary"]["top_priority_score"],
+            "interpretation": analysis["summary"]["interpretation"],
+            "isCustomInput": analysis["summary"].get("is_custom_input", False),
+        },
+        "observedWork": [
+            {
+                "skillId": w["skill_id"],
+                "skillName": w["skill_name"],
+                "category": w["category"],
+                "attempted": w["attempted"],
+                "correct": w["correct"],
+                "mastery": w["mastery"],
+                "isCustomInput": w.get("is_custom_input", False),
+                "items": [
+                    {
+                        "itemId": it["item_id"],
+                        "stem": it["stem"],
+                        "chosen": it["chosen"],
+                        "correctChoice": it["correct_choice"],
+                        "isCorrect": it["is_correct"],
+                        "choiceA": it["choice_a"],
+                        "choiceB": it["choice_b"],
+                        "choiceC": it["choice_c"],
+                        "choiceD": it["choice_d"],
+                    }
+                    for it in w.get("items", [])
+                ],
+            }
+            for w in analysis["observed_work"]
+        ],
+        "recommendations": [
+            {
+                "rank": r["rank"],
+                "skillId": r["skill_id"],
+                "skillName": r["skill_name"],
+                "category": r["category"],
+                "level": r["level"],
+                "predictedMastery": r["predicted_mastery"],
+                "neighborPred": r.get("neighbor_pred"),
+                "relatedPred": r.get("related_pred"),
+                "foundationalWeight": r["foundational_weight"],
+                "priorityScore": r["priority_score"],
+                "reason": r["reason"],
+            }
+            for r in analysis["recommendations"]
+        ],
+        "peers": [
+            {"studentId": p["student_id"], "similarity": p["similarity"]}
+            for p in analysis["peers"]
+        ],
+        "methodologyDemo": export_methodology_demo(
+            result, idx, analysis, sigma=sigma, alpha=alpha, random_seed=random_seed
+        ),
+    }
+    if computation_trace is not None:
+        payload["computationTrace"] = computation_trace
+    return payload
+
+
+def build_dashboard_meta(
+    result: PipelineResult,
+    random_seed: int = RANDOM_SEED,
+    sigma: float = KERNEL_SIGMA,
+    alpha: float = PROPAGATION_ALPHA,
+    top_k: int = K_NEIGHBORS,
+) -> dict[str, Any]:
+    return {
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "isSynthetic": True,
+        "algorithm": "kernel-knn-label-propagation",
+        "scoreSource": "item-responses",
+        "randomSeed": random_seed,
+        "kernelSigma": sigma,
+        "kNeighbors": top_k,
+        "propagationAlpha": alpha,
+        "nStudents": len(result.student_ids),
+        "nSkills": N_SKILLS,
+        "nItems": len(result.item_ids),
+        "dataFiles": [
+            "data/item_bank.csv",
+            "data/student_responses.csv",
+            "data/synthetic_student_scores.csv",
+            "output/predicted_missing_skills.csv",
+        ],
+        "pipelineSteps": [
+            "Generate 216 synthetic MCQs (items.py)",
+            "Simulate student responses → matrix R",
+            "Aggregate R·Q → skill matrix S (% correct per skill)",
+            "Gaussian kernel K(u,v) on shared known skills",
+            "k-NN weighted neighbor prediction for missing skills",
+            "Label propagation from skill affinity graph W",
+            "Blend final = α·neighbor + (1−α)·related",
+            "Priority = (100 − predicted) × foundational weight",
+        ],
+    }
+
+
+def build_students_meta(result: PipelineResult) -> list[dict[str, Any]]:
+    students_meta = []
+    for idx in range(len(result.student_ids)):
+        sid = result.student_ids[idx]
+        observed = int(result.mask[idx].sum())
+        hidden = N_SKILLS - observed
+        sub = result.responses_df[result.responses_df["student_id"] == sid]
+        item_count = len(sub) if len(sub) else observed * 3
+        students_meta.append(
+            {
+                "id": sid,
+                "label": sid,
+                "observedCount": observed,
+                "hiddenCount": hidden,
+                "itemCount": item_count,
+            }
+        )
+    return students_meta
+
+
+def skills_catalog() -> list[dict[str, str]]:
+    return [
+        {
+            "id": s.skill_id,
+            "name": s.skill_name,
+            "category": s.category,
+            "level": s.level,
+        }
+        for s in SKILLS
+    ]
 
 
 def run_pipeline(seed: int = RANDOM_SEED) -> PipelineResult:
@@ -701,15 +1065,27 @@ def analyze_student(
     result: PipelineResult,
     student_idx: int,
     top_k: int = K_NEIGHBORS,
+    sigma: float = KERNEL_SIGMA,
+    alpha: float = PROPAGATION_ALPHA,
+    observed_work_override: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     sid = result.student_ids[student_idx]
-    observed_stats = _observed_skill_stats(result.responses_df, sid)
+    is_custom = observed_work_override is not None
+    if is_custom:
+        observed_work = observed_work_override
+        observed_stats = _observed_stats_from_work(observed_work)
+    else:
+        observed_stats = _observed_skill_stats(result.responses_df, sid)
+        observed_work = build_observed_work(result.responses_df, sid)
+
     predictions, kernel_sims, breakdown = predict_missing_scores_knn_propagate(
         result.scores,
         result.mask,
         student_idx,
         result.skill_affinity,
         top_k=top_k,
+        sigma=sigma,
+        alpha=alpha,
     )
     recs = rank_recommendations(
         predictions, result.mask, student_idx, result.skills, observed_stats, breakdown
@@ -730,10 +1106,12 @@ def analyze_student(
 
     observed = int(result.mask[student_idx].sum())
     hidden = N_SKILLS - observed
-    total_items = len(result.responses_df[result.responses_df["student_id"] == sid])
+    if is_custom:
+        total_items = sum(w["attempted"] for w in observed_work)
+    else:
+        total_items = len(result.responses_df[result.responses_df["student_id"] == sid])
     avg_items = round(total_items / observed, 1) if observed else 0.0
     top_priority = float(recs.iloc[0]["priority_score"]) if not recs.empty else 0.0
-    observed_work = build_observed_work(result.responses_df, sid)
 
     return {
         "summary": {
@@ -743,6 +1121,7 @@ def analyze_student(
             "avg_items_per_skill": avg_items,
             "top_priority_score": round(top_priority, 1),
             "interpretation": build_interpretation(recs, observed_stats),
+            "is_custom_input": is_custom,
         },
         "recommendations": [
             {
@@ -752,6 +1131,8 @@ def analyze_student(
                 "category": row.category,
                 "level": row.level,
                 "predicted_mastery": float(row.predicted_mastery),
+                "neighbor_pred": getattr(row, "neighbor_pred", None),
+                "related_pred": getattr(row, "related_pred", None),
                 "foundational_weight": float(row.foundational_weight),
                 "priority_score": float(row.priority_score),
                 "reason": row.reason,

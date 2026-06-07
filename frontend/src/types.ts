@@ -17,6 +17,7 @@ export interface ObservedSkillWork {
   attempted: number;
   correct: number;
   mastery: number;
+  isCustomInput?: boolean;
   items: ResponseItem[];
 }
 
@@ -46,6 +47,43 @@ export interface StudentSummary {
   avgItemsPerSkill?: number;
   topPriorityScore: number;
   interpretation: string;
+  isCustomInput?: boolean;
+}
+
+export interface SkillMeta {
+  id: string;
+  name: string;
+  category: string;
+  level: string;
+}
+
+export interface ComputationStep {
+  step: number;
+  function: string;
+  codeRef: string;
+  title: string;
+  inputs: Record<string, unknown>;
+  output: string | number;
+  latex: string;
+}
+
+export interface AnalyzeRequest {
+  studentId?: string;
+  seed?: number;
+  sigma?: number;
+  alpha?: number;
+  k?: number;
+  customStudent?: {
+    name: string;
+    observedSkills: { skillId: string; mastery: number }[];
+  };
+}
+
+export interface AnalyzeResponse {
+  studentId: string;
+  meta: DashboardData["meta"];
+  students: StudentMeta[];
+  dashboard: StudentDashboard;
 }
 
 export interface MethodologyDemo {
@@ -92,6 +130,7 @@ export interface StudentDashboard {
   recommendations: Recommendation[];
   peers: Peer[];
   methodologyDemo?: MethodologyDemo;
+  computationTrace?: ComputationStep[];
 }
 
 export interface StudentMeta {

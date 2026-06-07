@@ -25,17 +25,39 @@ Generates:
 - `output/figures/*.png` — heatmap, kernel neighbor heatmap, bar charts
 - `frontend/public/data/dashboard.json` — dashboard data with `observedWork`
 
-### Localhost dashboard
+### Localhost dashboard (static)
 
 ```bash
 cd frontend && npm install && npm run dev
 ```
 
-Open **http://localhost:5173** — shows tested skills, expandable item responses, then predictions.
+Open **http://localhost:5173** — reads pre-generated `dashboard.json`.
+
+### Live showcase (Python API + dashboard)
+
+Run the FastAPI server and Vite together so predictions execute on demand via real `lib.py`:
+
+```bash
+cd sat-skill-gap-prototype
+source .venv/bin/activate
+pip install -r requirements.txt
+npm install
+npm run dev:live
+```
+
+Open **http://localhost:5173** — a **Live mode** badge appears when the API is connected.
+
+The **Live showcase** panel lets you:
+- Change random seed, σ, α, and k — then **Run analysis** to refresh recommendations
+- **Regenerate cohort** with a new seed
+- **Add a custom student** (name + tested skills + mastery %) and analyze against the cohort
+- View a **computation trace** showing which `lib.py` functions ran and the numeric results
+
+API endpoints: `GET /api/health`, `GET /api/skills`, `POST /api/pipeline`, `POST /api/analyze`.
 
 ### For school project reviewers
 
-The dashboard includes an expandable section **"How this data is built (linear algebra step-by-step)"** at the top. It explains where every number comes from (Python-generated CSVs, not hand-entered frontend values) and shows **live worked examples** for the selected student: matrix dimensions, skill aggregation, Gaussian kernel distance/norm, k-NN prediction, label propagation blend, and priority formula. Switch students to see the examples update.
+The dashboard includes **"How this data is built"** with KaTeX formulas and live worked examples per student. In live mode, the same Python pipeline powers the UI — not pre-baked JSON alone.
 
 ## Data flow (response-based)
 

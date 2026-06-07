@@ -85,9 +85,14 @@ function SkillRow({ skill, defaultOpen }: { skill: ObservedSkillWork; defaultOpe
           <p className="text-meta sm:hidden">
             {skill.category} · {skill.correct}/{skill.attempted} correct
           </p>
-          {skill.items.map((item) => (
-            <ItemRow key={item.itemId} item={item} />
-          ))}
+          {skill.isCustomInput || skill.items.length === 0 ? (
+            <p className="text-body-sm text-muted-foreground italic">
+              Custom live input — mastery entered directly ({skill.correct}/{skill.attempted}{" "}
+              equivalent).
+            </p>
+          ) : (
+            skill.items.map((item) => <ItemRow key={item.itemId} item={item} />)
+          )}
         </div>
       )}
     </div>

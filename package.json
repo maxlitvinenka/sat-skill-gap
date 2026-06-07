@@ -3,6 +3,10 @@
   "private": true,
   "scripts": {
     "demo": "python predict.py --export-frontend && npm run dev --prefix frontend",
-    "export": "python predict.py --export-frontend"
+    "export": "python predict.py --export-frontend",
+    "dev:live": "concurrently -k \"python -m uvicorn api:app --reload --port 8000\" \"npm run dev --prefix frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
   }
 }
