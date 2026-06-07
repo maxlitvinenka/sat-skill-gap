@@ -1,20 +1,13 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MathFormula } from "@/components/MathFormula";
 import type { DashboardData, MethodologyDemo } from "@/types";
 import { cn } from "@/lib/utils";
 
-function Formula({ children }: { children: React.ReactNode }) {
-  return (
-    <pre className="text-body-sm font-mono bg-muted/40 border rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
-      {children}
-    </pre>
-  );
-}
-
 function LiveExample({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border-l-4 border-l-brand-gold bg-brand-gold/5 rounded-r-md px-4 py-3 text-body-sm space-y-1">
+    <div className="border-l-4 border-l-brand-gold bg-brand-gold/5 rounded-r-md px-4 py-3 text-body-sm space-y-2">
       <p className="text-meta font-medium uppercase tracking-wide">Live example for this student</p>
       {children}
     </div>
@@ -80,7 +73,6 @@ export function MethodologyWalkthrough({
   const sigma = demo?.similarityExample?.sigma ?? meta.kernelSigma ?? 25;
   const alpha = demo?.similarityExample?.alpha ?? meta.propagationAlpha ?? 0.7;
   const k = meta.kNeighbors ?? 15;
-
   return (
     <Card className="border-2 border-brand-gold/30">
       <CardHeader className="pb-2">
@@ -95,9 +87,7 @@ export function MethodologyWalkthrough({
           ) : (
             <ChevronRight className="h-5 w-5 shrink-0 text-brand-gold" />
           )}
-          <CardTitle className="text-h2">
-            How this data is built (linear algebra step-by-step)
-          </CardTitle>
+          <CardTitle className="text-h2">How this data is built</CardTitle>
         </button>
         <p className="text-body-sm text-muted-foreground pl-7">
           These numbers are not typed into the frontend. They are computed offline in Python and
@@ -136,7 +126,7 @@ export function MethodologyWalkthrough({
             title="Item responses → response matrix R"
             description={`Each student attempts ~3 questions per tested skill. Matrix R has shape ${demo?.matrixShapes.R ?? "100×216"}: row = one student, column = one item. Entry is 1 (correct), 0 (wrong), or missing if never attempted.`}
             formula={
-              <Formula>{`R[i,k] ∈ {0, 1, NaN}   (student i, item k)`}</Formula>
+              <MathFormula latex={`R_{i,k} \\in \\{0,\\,1,\\,\\text{NaN}\\} \\quad \\text{(student } i \\text{, item } k \\text{)}`} />
             }
             live={
               demo && (
@@ -156,10 +146,11 @@ export function MethodologyWalkthrough({
             title="Aggregate to skill matrix S (matrix multiplication view)"
             description="Each item maps to exactly one skill via matrix Q. Skill mastery is the percentage of items correct for that skill — not a random number."
             formula={
-              <Formula>{`S[i,j] = 100 × (# correct items for skill j) / (# attempted items for skill j)
+              <MathFormula
+                latex={`S_{i,j} = 100 \\cdot \\frac{\\#\\text{ correct items for skill } j}{\\#\\text{ attempted items for skill } j}
 
-Conceptually:  S = normalize(R · Q)
-Q maps items → skills (${demo?.matrixShapes.Q ?? "216×72"})`}</Formula>
+\\text{Conceptually:} \\quad S = \\text{normalize}(R \\cdot Q)`}
+              />
             }
             live={
               demo?.skillAggregationExample && (
@@ -169,7 +160,10 @@ Q maps items → skills (${demo?.matrixShapes.Q ?? "216×72"})`}</Formula>
                     {demo.skillAggregationExample.correct}/{demo.skillAggregationExample.attempted}{" "}
                     correct → <strong>{demo.skillAggregationExample.mastery}%</strong>
                   </p>
-                  <p className="font-mono text-meta">{demo.skillAggregationExample.formula}</p>
+                  <MathFormula
+                    display={false}
+                    latex={`100 \\cdot \\frac{${demo.skillAggregationExample.correct}}{${demo.skillAggregationExample.attempted}} = ${demo.skillAggregationExample.mastery}\\%`}
+                  />
                 </LiveExample>
               )
             }
@@ -181,7 +175,7 @@ Q maps items → skills (${demo?.matrixShapes.Q ?? "216×72"})`}</Formula>
             title="Each student is a vector in ℝ⁷²"
             description="Row i of S is a 72-dimensional skill vector. Coordinates are known only for tested skills (~40); untested skills are missing (not filled with random values)."
             formula={
-              <Formula>{`s_i = (S[i,1], S[i,2], …, S[i,72]) ∈ ℝ^72`}</Formula>
+              <MathFormula latex={`\\mathbf{s}_i = (S_{i,1},\\, S_{i,2},\\, \\ldots,\\, S_{i,72}) \\in \\mathbb{R}^{72}`} />
             }
             live={
               demo && (
@@ -198,11 +192,13 @@ Q maps items → skills (${demo?.matrixShapes.Q ?? "216×72"})`}</Formula>
           <Step
             number={5}
             title="Gaussian kernel on shared skills (distance + norm)"
-            description="To compare two students, we use only skills both have been tested on (set Ω). Euclidean distance ||u−v||² is computed via dot product on the difference vector, then mapped to a kernel similarity."
+            description="To compare two students, we use only skills both have been tested on (set Ω). Euclidean distance ‖u−v‖² is computed via dot product on the difference vector, then mapped to a kernel similarity."
             formula={
-              <Formula>{`||u − v||² = (u − v)ᵀ(u − v) = Σ (u_k − v_k)²   on shared skills Ω
+              <MathFormula
+                latex={`\\|u - v\\|^2 = (u - v)^\\top (u - v) = \\sum_{k \\in \\Omega} (u_k - v_k)^2
 
-K(u, v) = exp(−||u − v||² / (2σ²))     σ = ${sigma}`}</Formula>
+K(u, v) = \\exp\\!\\left(-\\frac{\\|u - v\\|^2}{2\\sigma^2}\\right), \\quad \\sigma = ${sigma}`}
+              />
             }
             live={
               demo?.similarityExample && (
@@ -211,13 +207,14 @@ K(u, v) = exp(−||u − v||² / (2σ²))     σ = ${sigma}`}</Formula>
                     Nearest peer: <strong>{demo.similarityExample.peerStudentId}</strong> (
                     {demo.similarityExample.sharedSkills} shared tested skills)
                   </p>
-                  <p className="font-mono text-meta">
-                    ||u−v||² = {demo.similarityExample.squaredDistance}
-                  </p>
-                  <p>
-                    K(u,v) = exp(−{demo.similarityExample.squaredDistance} / (2×{demo.similarityExample.sigma}²)) ={" "}
-                    <strong>{demo.similarityExample.kernelValue}</strong>
-                  </p>
+                  <MathFormula
+                    display={false}
+                    latex={`\\|u - v\\|^2 = ${demo.similarityExample.squaredDistance}`}
+                  />
+                  <MathFormula
+                    display={false}
+                    latex={`K(u,v) = \\exp\\!\\left(-\\frac{${demo.similarityExample.squaredDistance}}{2 \\cdot ${demo.similarityExample.sigma}^2}\\right) = ${demo.similarityExample.kernelValue}`}
+                  />
                 </LiveExample>
               )
             }
@@ -229,9 +226,11 @@ K(u, v) = exp(−||u − v||² / (2σ²))     σ = ${sigma}`}</Formula>
             title="k-NN weighted prediction (collaborative)"
             description={`For each missing skill j, take the top-${k} peers who were tested on j. Weight their scores on j by Gaussian kernel similarity to the target student.`}
             formula={
-              <Formula>{`neighbor_pred_j = Σ (K_i × peer_score_i) / Σ K_i
+              <MathFormula
+                latex={`\\widehat{y}^{\\text{neighbor}}_j = \\frac{\\sum_i K_i \\cdot \\text{peer\\_score}_{i,j}}{\\sum_i K_i}
 
-Higher kernel weight → that peer's score counts more.`}</Formula>
+\\text{Higher kernel weight } K_i \\Rightarrow \\text{that peer's score counts more.}`}
+              />
             }
             live={
               demo?.predictionExample && (
@@ -256,9 +255,11 @@ Higher kernel weight → that peer's score counts more.`}</Formula>
             title="Label propagation from related skills"
             description="A skill affinity graph W connects prerequisites, same-category skills, and adjacent difficulty levels. Missing skills borrow signal from the target's known related skills."
             formula={
-              <Formula>{`related_pred_j = Σ W[j,j′] × known_score_j′ / Σ W[j,j′]
+              <MathFormula
+                latex={`\\widehat{y}^{\\text{related}}_j = \\frac{\\sum_{j'} W_{j,j'} \\cdot \\text{known\\_score}_{j'}}{\\sum_{j'} W_{j,j'}}
 
-final_j = α × neighbor_pred + (1 − α) × related_pred     α = ${alpha}`}</Formula>
+\\widehat{y}^{\\text{final}}_j = \\alpha \\cdot \\widehat{y}^{\\text{neighbor}}_j + (1 - \\alpha) \\cdot \\widehat{y}^{\\text{related}}_j, \\quad \\alpha = ${alpha}`}
+              />
             }
             live={
               demo?.predictionExample && (
@@ -282,15 +283,16 @@ final_j = α × neighbor_pred + (1 − α) × related_pred     α = ${alpha}`}</
             title="Priority ranking (what to practice next)"
             description="Low predicted mastery on foundational skills ranks highest. Basic skills have larger foundational weights."
             formula={
-              <Formula>{`priority = (100 − predicted) × foundational_weight`}</Formula>
+              <MathFormula latex={`\\text{priority} = (100 - \\widehat{y}^{\\text{final}}) \\times w_{\\text{foundational}}`} />
             }
             live={
               demo?.predictionExample && (
                 <LiveExample>
-                  <p>
-                    {demo.predictionExample.skillName}:{" "}
-                    <strong>{demo.predictionExample.priorityFormula}</strong>
-                  </p>
+                  <p>{demo.predictionExample.skillName}:</p>
+                  <MathFormula
+                    display={false}
+                    latex={`(100 - ${Math.round(demo.predictionExample.predictedMastery)}) \\times ${demo.predictionExample.foundationalWeight.toFixed(2)} = ${demo.predictionExample.priorityScore.toFixed(1)}`}
+                  />
                 </LiveExample>
               )
             }
