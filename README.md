@@ -6,16 +6,22 @@ Predicts which SAT Reading/Writing skills a student is likely weak in when those
 
 ## GitHub
 
-**Repository:** [github.com/maxlitvinenka/sat-skill-gap](https://github.com/maxlitvinenka/sat-skill-gap) (private)
+**Repository:** [github.com/maxlitvinenka/sat-skill-gap](https://github.com/maxlitvinenka/sat-skill-gap)
 
-Clone and run locally — no public website required:
+### Try it in the browser (no install)
+
+**Live demo:** [maxlitvinenka.github.io/sat-skill-gap](https://maxlitvinenka.github.io/sat-skill-gap/)
+
+Opens the full dashboard with student selector, methodology walkthrough, recommendations, and charts. Data is pre-generated — no `git clone` or localhost required.
+
+> The **Live showcase** panel (custom students, σ/α/k sliders, Python API) only works when you run locally with `npm run dev:live`. GitHub Pages hosts the static dashboard only.
+
+### Run locally (optional)
 
 ```bash
 git clone https://github.com/maxlitvinenka/sat-skill-gap.git
 cd sat-skill-gap
 ```
-
-Invite collaborators under **Settings → Collaborators** to share access without making the repo public.
 
 ## Quick start
 

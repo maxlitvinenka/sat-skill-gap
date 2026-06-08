@@ -63,7 +63,7 @@ export function SkillGapDashboard() {
         return;
       }
 
-      fetch("/data/dashboard.json")
+      fetch(`${import.meta.env.BASE_URL}data/dashboard.json`)
         .then((r) => {
           if (!r.ok) throw new Error("Missing dashboard.json — run: python predict.py --export-frontend");
           return r.json();
