@@ -261,7 +261,7 @@ export function SkillGapDashboard() {
           icon={<Lightbulb className="h-5 w-5" />}
           label="Top priority gap score"
           value={studentData.summary.topPriorityScore.toFixed(1)}
-          sublabel="Highest (100 − predicted mastery) × foundational weight among untested skills"
+          sublabel="Highest (100 − mastery) × foundational weight across all skills"
           tone="warning"
           className="max-w-md"
         />
@@ -278,8 +278,8 @@ export function SkillGapDashboard() {
         <section id="recommendations" className="space-y-6 scroll-mt-8">
           <div className="space-y-3">
             <SectionHeading
-              title="Priority recommendations (untested skills)"
-              description="Ranked by predicted weakness × foundational weight"
+              title="Priority recommendations (all skills)"
+              description="Tested skills use observed mastery; untested use predicted mastery. Ranked by (100 − score) × foundational weight."
             />
             <RecommendationsTable rows={studentData.recommendations} />
           </div>

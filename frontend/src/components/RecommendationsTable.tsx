@@ -20,9 +20,10 @@ export function RecommendationsTable({ rows }: { rows: Recommendation[] }) {
           <TableRow>
             <TableHead>Rank</TableHead>
             <TableHead>Skill</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead>Category</TableHead>
             <TableHead>Level</TableHead>
-            <TableHead>Predicted</TableHead>
+            <TableHead>Score</TableHead>
             <TableHead>Weight</TableHead>
             <TableHead>Priority</TableHead>
           </TableRow>
@@ -34,6 +35,18 @@ export function RecommendationsTable({ rows }: { rows: Recommendation[] }) {
               <TableCell>
                 <div className="font-medium max-w-[220px]">{row.skillName}</div>
                 <div className="text-meta mt-0.5 max-w-[280px]">{row.reason}</div>
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    row.isTested
+                      ? "border-blue-500/40 text-blue-700 bg-blue-50"
+                      : "border-amber-500/40 text-amber-800 bg-amber-50",
+                  )}
+                >
+                  {row.isTested ? "Tested" : "Untested"}
+                </Badge>
               </TableCell>
               <TableCell>
                 <Badge variant="outline" className={cn(categoryBadgeClass(row.category))}>

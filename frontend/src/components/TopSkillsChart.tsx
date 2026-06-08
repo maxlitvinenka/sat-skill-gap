@@ -26,7 +26,7 @@ export function TopSkillsChart({ rows }: { rows: Recommendation[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Top recommended skills</CardTitle>
+        <CardTitle>Top priority skills (tested &amp; untested)</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={360} aria-label="Top priority skills bar chart">

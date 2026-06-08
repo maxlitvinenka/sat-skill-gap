@@ -440,8 +440,7 @@ def rank_recommendations(
         weak_hint = f" Observed weakness in {weak_observed[0][1]['skill_name']} ({weak_observed[0][1]['correct']}/{weak_observed[0][1]['attempted']} correct)."
 
     for j, skill in enumerate(skills):
-        if mask[target_idx, j]:
-            continue
+        is_tested = bool(mask[target_idx, j])
         pred = predictions[j]
         if np.isnan(pred):
             continue
@@ -449,31 +448,43 @@ def rank_recommendations(
         bd = (breakdown or {}).get(j, {})
         neighbor = bd.get("neighbor_pred")
         related = bd.get("related_pred")
-        blend_note = ""
-        if neighbor is not None and related is not None:
-            blend_note = (
-                f" Blended k-NN ({neighbor:.0f}%) and related-skill propagation ({related:.0f}%)."
+        if is_tested:
+            st = observed_stats.get(skill.skill_id)
+            work_note = ""
+            if st:
+                work_note = f" ({st['correct']}/{st['attempted']} items correct)."
+            reason = (
+                f"Observed {pred:.0f}% on tested {skill.level.lower()} {skill.category.lower()} skill"
+                f"{work_note} Priority reflects measured weakness × foundational weight."
             )
-        elif neighbor is not None:
-            blend_note = f" From k-NN peers ({neighbor:.0f}%)."
-        elif related is not None:
-            blend_note = f" From related-skill propagation ({related:.0f}%)."
+        else:
+            blend_note = ""
+            if neighbor is not None and related is not None:
+                blend_note = (
+                    f" Blended k-NN ({neighbor:.0f}%) and related-skill propagation ({related:.0f}%)."
+                )
+            elif neighbor is not None:
+                blend_note = f" From k-NN peers ({neighbor:.0f}%)."
+            elif related is not None:
+                blend_note = f" From related-skill propagation ({related:.0f}%)."
+            reason = (
+                f"Predicted {pred:.0f}% on untested {skill.level.lower()} {skill.category.lower()} skill;"
+                f"{blend_note}{weak_hint} Similar students with overlapping "
+                f"{', '.join(sorted(observed_cats)) or 'tested'} skills also struggled here."
+            ).replace("  ", " ")
         rows.append(
             {
                 "skill_id": skill.skill_id,
                 "skill_name": skill.skill_name,
                 "category": skill.category,
                 "level": skill.level,
+                "is_tested": is_tested,
                 "predicted_mastery": round(pred, 1),
-                "neighbor_pred": neighbor,
-                "related_pred": related,
+                "neighbor_pred": neighbor if not is_tested else None,
+                "related_pred": related if not is_tested else None,
                 "foundational_weight": skill.foundational_weight,
                 "priority_score": round(priority, 1),
-                "reason": (
-                    f"Predicted {pred:.0f}% on untested {skill.level.lower()} {skill.category.lower()} skill;"
-                    f"{blend_note}{weak_hint} Similar students with overlapping "
-                    f"{', '.join(sorted(observed_cats)) or 'tested'} skills also struggled here."
-                ).replace("  ", " "),
+                "reason": reason,
             }
         )
     df = pd.DataFrame(rows).sort_values("priority_score", ascending=False).reset_index(drop=True)
@@ -483,10 +494,12 @@ def rank_recommendations(
 
 def build_interpretation(recs: pd.DataFrame, observed_stats: dict[str, dict[str, Any]], top_n: int = 3) -> str:
     if recs.empty:
-        return "Insufficient untested skills to generate recommendations."
+        return "Insufficient skills to generate recommendations."
     top = recs.head(top_n)
     names = ", ".join(top["skill_name"].tolist())
     categories = ", ".join(sorted(set(top["category"].tolist())))
+    tested_top = top[top["is_tested"]] if "is_tested" in top.columns else pd.DataFrame()
+    untested_top = top[~top["is_tested"]] if "is_tested" in top.columns else top
     weak = sorted(observed_stats.values(), key=lambda x: x["mastery"])[:2]
     work_note = ""
     if weak:
@@ -494,11 +507,17 @@ def build_interpretation(recs: pd.DataFrame, observed_stats: dict[str, dict[str,
             f" Based on item responses, the student scored {weak[0]['mastery']:.0f}% on "
             f"{weak[0]['skill_name']} ({weak[0]['correct']}/{weak[0]['attempted']} correct)."
         )
+    if not untested_top.empty and not tested_top.empty:
+        lead = (
+            f"Top priorities mix tested gaps and predicted untested skills: {names}."
+        )
+    elif not tested_top.empty:
+        lead = f"Highest-priority tested skills to reinforce: {names}."
+    else:
+        lead = f"The model predicts this student is likely weak in {names}."
     return (
-        f"The model predicts this student is likely weak in {names}.{work_note} "
-        f"Because these are foundational {categories.lower()} skills and similar students "
-        f"with comparable response profiles struggled in them, the system recommends testing "
-        f"or practicing these skills next."
+        f"{lead}{work_note} These foundational {categories.lower()} skills rank highest "
+        f"by (100 − mastery) × foundational weight across all 72 skills."
     )
 
 
@@ -931,6 +950,7 @@ def serialize_student_dashboard(
                 "skillName": r["skill_name"],
                 "category": r["category"],
                 "level": r["level"],
+                "isTested": r.get("is_tested", False),
                 "predictedMastery": r["predicted_mastery"],
                 "neighborPred": r.get("neighbor_pred"),
                 "relatedPred": r.get("related_pred"),
@@ -1130,6 +1150,7 @@ def analyze_student(
                 "skill_name": row.skill_name,
                 "category": row.category,
                 "level": row.level,
+                "is_tested": bool(getattr(row, "is_tested", False)),
                 "predicted_mastery": float(row.predicted_mastery),
                 "neighbor_pred": getattr(row, "neighbor_pred", None),
                 "related_pred": getattr(row, "related_pred", None),

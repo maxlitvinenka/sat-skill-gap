@@ -27,6 +27,7 @@ export interface Recommendation {
   skillName: string;
   category: string;
   level: string;
+  isTested?: boolean;
   predictedMastery: number;
   neighborPred?: number | null;
   relatedPred?: number | null;
