@@ -198,7 +198,7 @@ export function MethodologyWalkthrough({
                 latex={`\\|u - v\\|^2 = \\sum_{k \\in \\Omega} (u_k - v_k)^2, \\quad
 \\text{mean\\_sq} = \\frac{\\|u - v\\|^2}{|\\Omega|}
 
-K(u, v) = \\exp\\!\\left(-\\frac{\\text{mean\\_sq}}{2\\sigma^2}\\right), \\quad \\sigma = ${sigma} \\text{ (per-skill %)}`}
+K(u, v) = \\exp\\!\\left(-\\frac{\\text{mean\\_sq}}{2\\sigma^2}\\right), \\quad \\sigma = ${sigma} \\text{ (per-skill \\%)}`}
               />
             }
             live={
@@ -210,7 +210,7 @@ K(u, v) = \\exp\\!\\left(-\\frac{\\text{mean\\_sq}}{2\\sigma^2}\\right), \\quad 
                   </p>
                   <MathFormula
                     display={false}
-                    latex={`\\|u - v\\|^2 = ${demo.similarityExample.squaredDistance}, \\quad \\text{mean\\_sq} = ${demo.similarityExample.meanSquaredDistance ?? "—"}`}
+                    latex={`\\|u - v\\|^2 = ${demo.similarityExample.squaredDistance}, \\quad \\text{mean\\_sq} = ${demo.similarityExample.meanSquaredDistance ?? demo.similarityExample.squaredDistance}`}
                   />
                   <MathFormula
                     display={false}
