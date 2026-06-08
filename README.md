@@ -14,7 +14,7 @@ Predicts which SAT Reading/Writing skills a student is likely weak in when those
 
 Opens the full dashboard with student selector, methodology walkthrough, recommendations, and charts. Data is pre-generated — no `git clone` or localhost required.
 
-> The **Live showcase** panel (custom students, σ/α/k sliders, Python API) only works when you run locally with `npm run dev:live`. GitHub Pages hosts the static dashboard only.
+> The **Live showcase** panel (custom students, Python API) only works when you run locally with `npm run dev:live`. GitHub Pages hosts the static dashboard only.
 
 ### Run locally (optional)
 
@@ -67,8 +67,6 @@ npm run dev:live
 Open **http://localhost:5173** — a **Live mode** badge appears when the API is connected.
 
 The **Live showcase** panel lets you:
-- Change random seed, σ, α, and k — then **Run analysis** to refresh recommendations
-- **Regenerate cohort** with a new seed
 - **Add a custom student** (name + tested skills + mastery %) and analyze against the cohort
 - View a **computation trace** showing which `lib.py` functions ran and the numeric results
 

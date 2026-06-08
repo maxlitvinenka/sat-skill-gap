@@ -205,12 +205,7 @@ export function SkillGapDashboard() {
           }
         />
 
-        <LiveShowcase
-          live={liveMode}
-          studentId={studentId}
-          meta={meta}
-          onUpdate={handleLiveUpdate}
-        />
+        <LiveShowcase live={liveMode} onUpdate={handleLiveUpdate} />
 
         {studentData.computationTrace && studentData.computationTrace.length > 0 && (
           <ComputationTrace

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Loader2, Play, RefreshCw, UserPlus, Zap } from "lucide-react";
-import { analyzeLive, fetchSkills, regeneratePipeline } from "@/api/client";
+import { ChevronDown, ChevronRight, UserPlus, Zap } from "lucide-react";
+import { analyzeLive, fetchSkills } from "@/api/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,13 +10,9 @@ type CustomSkillRow = { skillId: string; mastery: number };
 
 export function LiveShowcase({
   live,
-  studentId,
-  meta,
   onUpdate,
 }: {
   live: boolean;
-  studentId: string;
-  meta: DashboardData["meta"];
   onUpdate: (payload: {
     studentId: string;
     meta: DashboardData["meta"];
@@ -25,10 +21,6 @@ export function LiveShowcase({
   }) => void;
 }) {
   const [open, setOpen] = useState(true);
-  const [seed, setSeed] = useState(meta.randomSeed ?? 42);
-  const [sigma, setSigma] = useState(meta.kernelSigma ?? 25);
-  const [alpha, setAlpha] = useState(meta.propagationAlpha ?? 0.7);
-  const [k, setK] = useState(meta.kNeighbors ?? 15);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [skills, setSkills] = useState<SkillMeta[]>([]);
@@ -57,27 +49,20 @@ export function LiveShowcase({
     [onUpdate],
   );
 
-  const runAnalyze = useCallback(
-    async (overrides?: { customStudent?: { name: string; observedSkills: CustomSkillRow[] } }) => {
+  const runCustomAnalyze = useCallback(
+    async (name: string, observedSkills: CustomSkillRow[]) => {
       if (!live) return;
       setLoading(true);
       setError(null);
       try {
         const res = await analyzeLive({
-          studentId: overrides?.customStudent ? undefined : studentId,
-          seed,
-          sigma,
-          alpha,
-          k,
-          customStudent: overrides?.customStudent
-            ? {
-                name: overrides.customStudent.name,
-                observedSkills: overrides.customStudent.observedSkills.map((r) => ({
-                  skillId: r.skillId,
-                  mastery: r.mastery,
-                })),
-              }
-            : undefined,
+          customStudent: {
+            name,
+            observedSkills: observedSkills.map((r) => ({
+              skillId: r.skillId,
+              mastery: r.mastery,
+            })),
+          },
         });
         applyResponse(res);
       } catch (e) {
@@ -86,29 +71,8 @@ export function LiveShowcase({
         setLoading(false);
       }
     },
-    [live, studentId, seed, sigma, alpha, k, applyResponse],
+    [live, applyResponse],
   );
-
-  const regenerate = async () => {
-    if (!live) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const pipe = await regeneratePipeline(seed);
-      const res = await analyzeLive({
-        studentId: pipe.defaultStudentId,
-        seed,
-        sigma,
-        alpha,
-        k,
-      });
-      applyResponse(res);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Regeneration failed");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const addCustomSkill = () => {
     if (customRows.some((r) => r.skillId === skillPicker)) return;
@@ -123,9 +87,7 @@ export function LiveShowcase({
     if (customRows.length < 10) {
       setError(null);
     }
-    void runAnalyze({
-      customStudent: { name: customName.trim(), observedSkills: customRows },
-    });
+    void runCustomAnalyze(customName.trim(), customRows);
   };
 
   if (!live) return null;
@@ -153,7 +115,7 @@ export function LiveShowcase({
           </Badge>
         </button>
         <p className="text-body-sm text-muted-foreground pl-7">
-          Tune parameters or add a custom student — results run through real{" "}
+          Add a custom student — results run through real{" "}
           <code className="text-meta">lib.py</code> on the server.
         </p>
       </CardHeader>
@@ -166,70 +128,6 @@ export function LiveShowcase({
           )}
 
           <section className="space-y-3">
-            <h3 className="text-body font-semibold">Algorithm controls</h3>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="space-y-1 text-body-sm">
-                <span className="text-muted-foreground">Random seed</span>
-                <input
-                  type="number"
-                  className="w-full rounded-md border bg-background px-3 py-2"
-                  value={seed}
-                  onChange={(e) => setSeed(Number(e.target.value))}
-                />
-              </label>
-              <label className="space-y-1 text-body-sm">
-                <span className="text-muted-foreground">σ (kernel)</span>
-                <input
-                  type="range"
-                  min={5}
-                  max={60}
-                  step={1}
-                  value={sigma}
-                  onChange={(e) => setSigma(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="tabular-nums">{sigma}</span>
-              </label>
-              <label className="space-y-1 text-body-sm">
-                <span className="text-muted-foreground">α (blend)</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={alpha}
-                  onChange={(e) => setAlpha(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="tabular-nums">{alpha.toFixed(2)}</span>
-              </label>
-              <label className="space-y-1 text-body-sm">
-                <span className="text-muted-foreground">k (neighbors)</span>
-                <input
-                  type="range"
-                  min={3}
-                  max={30}
-                  step={1}
-                  value={k}
-                  onChange={(e) => setK(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="tabular-nums">{k}</span>
-              </label>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" onClick={() => void runAnalyze()} disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                Run analysis
-              </Button>
-              <Button type="button" variant="outline" onClick={() => void regenerate()} disabled={loading}>
-                <RefreshCw className="h-4 w-4" />
-                Regenerate cohort
-              </Button>
-            </div>
-          </section>
-
-          <section className="space-y-3 border-t pt-4">
             <h3 className="text-body font-semibold flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
               Custom student
