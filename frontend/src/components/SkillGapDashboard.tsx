@@ -14,6 +14,7 @@ import { MethodologyWalkthrough } from "@/components/MethodologyWalkthrough";
 import { RecommendationsTable } from "@/components/RecommendationsTable";
 import { TopSkillsChart } from "@/components/TopSkillsChart";
 import { PeerSimilarityChart } from "@/components/PeerSimilarityChart";
+import { SkillGapLandscapeChart } from "@/components/SkillGapLandscapeChart";
 import { TestedSkillsWork } from "@/components/TestedSkillsWork";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -293,6 +294,11 @@ export function SkillGapDashboard() {
         <div id="peer-similarity" className="scroll-mt-8">
           <PeerSimilarityChart peers={studentData.peers} />
         </div>
+
+        <SkillGapLandscapeChart
+          rows={studentData.recommendations}
+          studentId={studentId}
+        />
       </div>
     </div>
   );
