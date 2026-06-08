@@ -258,10 +258,13 @@ def build_skill_affinity_matrix(skills: list[Skill]) -> np.ndarray:
 
 
 def gaussian_kernel(u: np.ndarray, v: np.ndarray, sigma: float = KERNEL_SIGMA) -> float:
-    """K(u,v) = exp(-||u-v||^2 / (2*sigma^2)) using dot product on difference vector."""
+    """K(u,v) with per-dimension mean squared error so σ is in mastery-% units."""
     diff = u - v
-    sq_dist = float(np.dot(diff, diff))
-    return float(np.exp(-sq_dist / (2 * sigma**2)))
+    n = len(diff)
+    if n == 0:
+        return 0.0
+    mean_sq_dist = float(np.dot(diff, diff)) / n
+    return float(np.exp(-mean_sq_dist / (2 * sigma**2)))
 
 
 def kernel_similarity_observed(
@@ -269,16 +272,23 @@ def kernel_similarity_observed(
     peer: np.ndarray,
     shared_mask: np.ndarray,
     sigma: float = KERNEL_SIGMA,
-) -> tuple[float, float]:
-    """Return (kernel value, squared Euclidean distance) on shared known skills."""
+) -> tuple[float, float, float]:
+    """
+    Return (kernel value, total squared distance, mean squared distance per shared skill).
+
+    Distances are averaged over |Ω| so σ=25 means “typical per-skill gap in mastery %”
+    rather than penalizing students for having many overlapping tested skills.
+    """
     u = target[shared_mask]
     v = peer[shared_mask]
-    if len(u) < 5:
-        return 0.0, 0.0
+    n = len(u)
+    if n < 5:
+        return 0.0, 0.0, 0.0
     diff = u - v
     sq_dist = float(np.dot(diff, diff))
-    k = float(np.exp(-sq_dist / (2 * sigma**2)))
-    return k, sq_dist
+    mean_sq_dist = sq_dist / n
+    k = float(np.exp(-mean_sq_dist / (2 * sigma**2)))
+    return k, sq_dist, mean_sq_dist
 
 
 def related_skill_prediction(
@@ -320,7 +330,7 @@ def predict_missing_scores_knn_propagate(
         if shared.sum() < 5:
             kernel_sims[i] = 0.0
             continue
-        k, _ = kernel_similarity_observed(target, scores[i], shared, sigma)
+        k, _, _ = kernel_similarity_observed(target, scores[i], shared, sigma)
         kernel_sims[i] = k
 
     predictions = np.full(m, np.nan)
@@ -622,11 +632,19 @@ def build_methodology_demo(
         v = result.scores[peer_idx, shared]
         diff = u - v
         sq_dist = float(np.dot(diff, diff))
-        k_val = float(np.exp(-sq_dist / (2 * sigma**2)))
+        n_shared = int(shared.sum())
+        mean_sq_dist = sq_dist / n_shared if n_shared else 0.0
+        k_val, _, _ = kernel_similarity_observed(
+            result.scores[student_idx],
+            result.scores[peer_idx],
+            shared,
+            sigma,
+        )
         sim_ex = {
             "peerStudentId": peer_id,
-            "sharedSkills": int(shared.sum()),
+            "sharedSkills": n_shared,
             "squaredDistance": round(sq_dist, 2),
+            "meanSquaredDistance": round(mean_sq_dist, 2),
             "kernelValue": round(k_val, 4),
             "sigma": sigma,
             "alpha": alpha,
@@ -898,7 +916,7 @@ def build_computation_trace(
         shared = result.mask[student_idx] & result.mask[peer_idx]
         u = result.scores[student_idx, shared]
         v = result.scores[peer_idx, shared]
-        k_val, sq_dist = kernel_similarity_observed(
+        k_val, sq_dist, mean_sq_dist = kernel_similarity_observed(
             result.scores[student_idx],
             result.scores[peer_idx],
             shared,
@@ -924,20 +942,22 @@ def build_computation_trace(
             {
                 "step": step_num,
                 "function": "lib.kernel_similarity_observed",
-                "codeRef": "K(u,v) = exp(-||u-v||² / (2σ²))",
+                "codeRef": "K = exp(−mean_sq / (2σ²)), mean_sq = ||u−v||² / |Ω|",
                 "title": f"Compare {sid} to nearest peer {peer_id}",
                 "explanation": (
                     f"Only the {int(shared.sum())} skills both students were tested on are used (set Ω). "
-                    f"We sum squared differences across those coordinates to get ||u−v||² = {sq_dist:.2f}, "
-                    f"then map distance to similarity with σ = {sigma}. "
-                    f"Higher K means their observed skill profiles are more alike."
+                    f"Total squared gap ||u−v||² = {sq_dist:.2f}; we divide by |Ω| to get mean_sq = "
+                    f"{mean_sq_dist:.2f} (average per-skill gap in mastery %²). "
+                    f"Then K = exp(−mean_sq / (2σ²)) with σ = {sigma} (per-skill bandwidth in %). "
+                    f"Higher K means their observed profiles are more alike."
                 ),
                 "details": [
                     {"label": "Peer", "value": peer_id},
-                    {"label": "Shared tested skills", "value": str(int(shared.sum()))},
+                    {"label": "Shared tested skills |Ω|", "value": str(int(shared.sum()))},
                     {"label": "Σ(u_k − v_k)²", "value": f"{sq_dist:.2f}"},
-                    {"label": "σ (kernel bandwidth)", "value": str(sigma)},
-                    {"label": "Denominator 2σ²", "value": str(2 * sigma**2)},
+                    {"label": "mean_sq = Σ / |Ω|", "value": f"{mean_sq_dist:.2f}"},
+                    {"label": "σ (per-skill bandwidth %)", "value": str(sigma)},
+                    {"label": "Kernel K(u,v)", "value": f"{k_val:.4f}"},
                 ],
                 "table": {
                     "headers": shared_headers,
@@ -953,8 +973,8 @@ def build_computation_trace(
                 },
                 "output": round(k_val, 4),
                 "latex": (
-                    rf"\|u-v\|^2 = {sq_dist:.2f},\;"
-                    rf"K(u,v) = \exp\!\left(-\frac{{{sq_dist:.2f}}}{{2 \cdot {sigma}^2}}\right) = {k_val:.4f}"
+                    rf"\text{{mean\_sq}} = \frac{{{sq_dist:.2f}}}{{{int(shared.sum())}}} = {mean_sq_dist:.2f},\;"
+                    rf"K = \exp\!\left(-\frac{{{mean_sq_dist:.2f}}}{{2 \cdot {sigma}^2}}\right) = {k_val:.4f}"
                 ),
             }
         )
@@ -1398,7 +1418,7 @@ def analyze_student(
         peers.append(
             {
                 "student_id": result.student_ids[idx],
-                "similarity": round(float(kernel_sims[idx]), 3),
+                "similarity": round(float(kernel_sims[idx]), 4),
             }
         )
         if len(peers) >= 10:

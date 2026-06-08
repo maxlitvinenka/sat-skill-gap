@@ -122,6 +122,7 @@ export interface MethodologyDemo {
     peerStudentId: string;
     sharedSkills: number;
     squaredDistance: number;
+    meanSquaredDistance?: number;
     kernelValue: number;
     sigma: number;
     alpha: number;

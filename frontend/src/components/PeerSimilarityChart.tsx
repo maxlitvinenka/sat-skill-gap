@@ -35,7 +35,7 @@ export function PeerSimilarityChart({ peers }: { peers: Peer[] }) {
             <YAxis domain={[0, 1]} {...chartAxisProps} />
             <Tooltip
               content={
-                <ReadingRoomsTooltip valueFormatter={(v) => v.toFixed(3)} />
+                <ReadingRoomsTooltip valueFormatter={(v) => v.toFixed(4)} />
               }
             />
             <Bar dataKey="similarity" name="Kernel similarity (k-NN)" fill={chartPalette[1]} radius={[4, 4, 0, 0]} />

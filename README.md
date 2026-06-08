@@ -95,7 +95,7 @@ Gaussian kernel k-NN on S → label propagation via skill graph W → priority r
 | Skill-item matrix Q | `lib.build_skill_item_matrix()` | items × skills, one-hot |
 | Skill matrix S | `responses_to_skill_matrix()` | % correct per (student, skill) |
 | Squared distance | `kernel_similarity_observed()` | `(u−v)ᵀ(u−v)` on shared skills Ω |
-| Gaussian kernel | `gaussian_kernel()` | `exp(−‖u−v‖² / 2σ²)` |
+| Gaussian kernel | `gaussian_kernel()` | `exp(−mean_sq / 2σ²)` where `mean_sq = ‖u−v‖² / |Ω|` |
 | Skill affinity W | `build_skill_affinity_matrix()` | prerequisites, category, level neighbors |
 | k-NN prediction | `predict_missing_scores_knn_propagate()` | kernel-weighted peer average |
 | Label propagation | `related_skill_prediction()` | weighted average over related known skills |

@@ -192,12 +192,13 @@ export function MethodologyWalkthrough({
           <Step
             number={5}
             title="Gaussian kernel on shared skills (distance + norm)"
-            description="To compare two students, we use only skills both have been tested on (set Ω). Euclidean distance ‖u−v‖² is computed via dot product on the difference vector, then mapped to a kernel similarity."
+            description="To compare two students, we use only skills both have been tested on (set Ω). We average squared gaps per shared skill so σ is in mastery-% units (not inflated by |Ω|)."
             formula={
               <MathFormula
-                latex={`\\|u - v\\|^2 = (u - v)^\\top (u - v) = \\sum_{k \\in \\Omega} (u_k - v_k)^2
+                latex={`\\|u - v\\|^2 = \\sum_{k \\in \\Omega} (u_k - v_k)^2, \\quad
+\\text{mean\\_sq} = \\frac{\\|u - v\\|^2}{|\\Omega|}
 
-K(u, v) = \\exp\\!\\left(-\\frac{\\|u - v\\|^2}{2\\sigma^2}\\right), \\quad \\sigma = ${sigma}`}
+K(u, v) = \\exp\\!\\left(-\\frac{\\text{mean\\_sq}}{2\\sigma^2}\\right), \\quad \\sigma = ${sigma} \\text{ (per-skill %)}`}
               />
             }
             live={
@@ -209,11 +210,11 @@ K(u, v) = \\exp\\!\\left(-\\frac{\\|u - v\\|^2}{2\\sigma^2}\\right), \\quad \\si
                   </p>
                   <MathFormula
                     display={false}
-                    latex={`\\|u - v\\|^2 = ${demo.similarityExample.squaredDistance}`}
+                    latex={`\\|u - v\\|^2 = ${demo.similarityExample.squaredDistance}, \\quad \\text{mean\\_sq} = ${demo.similarityExample.meanSquaredDistance ?? "—"}`}
                   />
                   <MathFormula
                     display={false}
-                    latex={`K(u,v) = \\exp\\!\\left(-\\frac{${demo.similarityExample.squaredDistance}}{2 \\cdot ${demo.similarityExample.sigma}^2}\\right) = ${demo.similarityExample.kernelValue}`}
+                    latex={`K(u,v) = \\exp\\!\\left(-\\frac{${demo.similarityExample.meanSquaredDistance ?? demo.similarityExample.squaredDistance}}{2 \\cdot ${demo.similarityExample.sigma}^2}\\right) = ${demo.similarityExample.kernelValue}`}
                   />
                 </LiveExample>
               )

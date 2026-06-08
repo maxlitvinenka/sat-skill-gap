@@ -260,7 +260,7 @@ export function SkillGapDashboard() {
           <StatCard
             icon={<Users className="h-5 w-5" />}
             label="Nearest peer (kernel sim.)"
-            value={topPeer ? topPeer.similarity.toFixed(3) : "—"}
+            value={topPeer ? topPeer.similarity.toFixed(4) : "—"}
             sublabel={topPeer?.studentId}
             tone="accent"
           />
