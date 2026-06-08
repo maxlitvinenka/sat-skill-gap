@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2, Play, RefreshCw, UserPlus, Zap } from "lucide-react";
 import { analyzeLive, fetchSkills, regeneratePipeline } from "@/api/client";
-import { MathFormula } from "@/components/MathFormula";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type {
-  AnalyzeResponse,
-  ComputationStep,
-  DashboardData,
-  SkillMeta,
-  StudentDashboard,
-  StudentMeta,
-} from "@/types";
+import type { AnalyzeResponse, DashboardData, SkillMeta, StudentDashboard, StudentMeta } from "@/types";
 
 type CustomSkillRow = { skillId: string; mastery: number };
 
@@ -39,9 +31,6 @@ export function LiveShowcase({
   const [k, setK] = useState(meta.kNeighbors ?? 15);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [trace, setTrace] = useState<ComputationStep[]>([]);
-  const [traceOpen, setTraceOpen] = useState(true);
-
   const [skills, setSkills] = useState<SkillMeta[]>([]);
   const [customName, setCustomName] = useState("Jordan");
   const [customRows, setCustomRows] = useState<CustomSkillRow[]>([
@@ -58,7 +47,6 @@ export function LiveShowcase({
 
   const applyResponse = useCallback(
     (res: AnalyzeResponse) => {
-      setTrace(res.dashboard.computationTrace ?? []);
       onUpdate({
         studentId: res.studentId,
         meta: res.meta,
@@ -331,36 +319,6 @@ export function LiveShowcase({
             </Button>
           </section>
 
-          {trace.length > 0 && (
-            <section className="space-y-2 border-t pt-4">
-              <button
-                type="button"
-                className="flex items-center gap-2 text-body font-semibold"
-                onClick={() => setTraceOpen(!traceOpen)}
-              >
-                {traceOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                Computation trace
-              </button>
-              {traceOpen && (
-                <div className="space-y-3">
-                  {trace.map((step) => (
-                    <div key={step.step} className="rounded-md border bg-muted/20 p-3 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">Step {step.step}</Badge>
-                        <span className="font-medium text-body-sm">{step.title}</span>
-                        <code className="text-meta ml-auto">{step.function}</code>
-                      </div>
-                      <p className="text-meta">{step.codeRef}</p>
-                      <MathFormula latex={step.latex} />
-                      <p className="text-body-sm text-muted-foreground">
-                        Output: <strong>{step.output}</strong>
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
         </CardContent>
       )}
     </Card>

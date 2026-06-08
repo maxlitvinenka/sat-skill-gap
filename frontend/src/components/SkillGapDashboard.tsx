@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { analyzeLive, checkHealth } from "@/api/client";
 import { SyntheticDataBanner } from "@/components/SyntheticDataBanner";
+import { ComputationTrace } from "@/components/ComputationTrace";
 import { LiveShowcase } from "@/components/LiveShowcase";
 import { MethodologyWalkthrough } from "@/components/MethodologyWalkthrough";
 import { RecommendationsTable } from "@/components/RecommendationsTable";
@@ -210,6 +211,14 @@ export function SkillGapDashboard() {
           meta={meta}
           onUpdate={handleLiveUpdate}
         />
+
+        {studentData.computationTrace && studentData.computationTrace.length > 0 && (
+          <ComputationTrace
+            steps={studentData.computationTrace}
+            studentId={studentId}
+            live={liveMode}
+          />
+        )}
 
         <MethodologyWalkthrough
           meta={meta}

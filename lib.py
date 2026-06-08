@@ -759,6 +759,74 @@ def inject_custom_student(
     return updated, new_idx, observed_work
 
 
+def _trace_knn_neighbors(
+    result: PipelineResult,
+    student_idx: int,
+    skill_j: int,
+    kernel_sims: np.ndarray,
+    top_k: int,
+) -> tuple[list[dict[str, Any]], float | None]:
+    """Peers tested on skill_j with kernel weights and scores (for trace table)."""
+    n = len(result.student_ids)
+    peer_mask = result.mask[:, skill_j] & (np.arange(n) != student_idx)
+    peer_idxs = np.where(peer_mask)[0]
+    if len(peer_idxs) == 0:
+        return [], None
+    peer_kernels = kernel_sims[peer_idxs]
+    positive = peer_kernels > 0
+    if not positive.any():
+        return [], None
+    peer_idxs = peer_idxs[positive]
+    peer_kernels = peer_kernels[positive]
+    order = np.argsort(peer_kernels)[::-1][:top_k]
+    chosen = peer_idxs[order]
+    weights = peer_kernels[order]
+    weight_sum = float(weights.sum())
+    rows = []
+    weighted_sum = 0.0
+    for idx, w in zip(chosen, weights):
+        score_j = float(result.scores[idx, skill_j])
+        contrib = float(w * score_j)
+        weighted_sum += contrib
+        rows.append(
+            {
+                "Peer": result.student_ids[idx],
+                "K_i": round(float(w), 4),
+                "Score on skill": round(score_j, 1),
+                "K_i × score": round(contrib, 2),
+            }
+        )
+    neighbor_pred = weighted_sum / weight_sum if weight_sum > 0 else None
+    return rows, neighbor_pred
+
+
+def _trace_propagation_sources(
+    result: PipelineResult,
+    student_idx: int,
+    skill_j: int,
+) -> list[dict[str, Any]]:
+    """Related known skills that feed label propagation for skill_j."""
+    W = result.skill_affinity
+    target = result.scores[student_idx]
+    target_obs = result.mask[student_idx]
+    rows = []
+    for jp, skill in enumerate(result.skills):
+        w = float(W[skill_j, jp])
+        if w <= 0 or not target_obs[jp]:
+            continue
+        score = float(target[jp])
+        rows.append(
+            {
+                "Related skill": skill.skill_name,
+                "W weight": round(w, 3),
+                "Known score": round(score, 1),
+                "W × score": round(w * score, 2),
+            }
+        )
+    rows.sort(key=lambda r: -float(r["W weight"]))
+    return rows[:10]
+
+
 def build_computation_trace(
     result: PipelineResult,
     student_idx: int,
@@ -767,39 +835,116 @@ def build_computation_trace(
     alpha: float = PROPAGATION_ALPHA,
     top_k: int = K_NEIGHBORS,
 ) -> list[dict[str, Any]]:
-    """Step-by-step trace for the live showcase panel."""
+    """Step-by-step trace for the live showcase panel with provenance for each number."""
     steps: list[dict[str, Any]] = []
     sid = result.student_ids[student_idx]
     observed = int(result.mask[student_idx].sum())
+    observed_work = analysis.get("observed_work") or []
+    is_custom = analysis.get("summary", {}).get("is_custom_input", False)
+    step_num = 0
+
+    step_num += 1
+    skill_examples = []
+    for w in observed_work[:5]:
+        skill_examples.append(
+            {
+                "Skill": w["skill_name"],
+                "Correct": w["correct"],
+                "Attempted": w["attempted"],
+                "Mastery %": w["mastery"],
+            }
+        )
+    source_note = (
+        "Scores entered manually in the Live showcase (no MCQ items)."
+        if is_custom
+        else "Each % comes from (# correct MCQs) ÷ (# attempted) for that skill in student_responses.csv."
+    )
     steps.append(
         {
-            "step": 1,
+            "step": step_num,
             "function": "lib.responses_to_skill_matrix",
             "codeRef": "S[i,j] = 100 × (# correct) / (# attempted)",
-            "title": "Build partial skill vector",
+            "title": f"Build {sid}'s partial skill vector",
+            "explanation": (
+                f"{sid} has {observed} tested skills and {N_SKILLS - observed} untested. "
+                f"Each tested coordinate in matrix S is a real percentage, not random. {source_note}"
+            ),
+            "details": [
+                {"label": "Student", "value": sid},
+                {"label": "Known skills (|Ω|)", "value": str(observed)},
+                {"label": "Missing skills", "value": str(N_SKILLS - observed)},
+                {"label": "Total items attempted", "value": str(analysis["summary"].get("total_items_attempted", "—"))},
+            ],
+            "table": {
+                "headers": ["Skill", "Correct", "Attempted", "Mastery %"],
+                "rows": skill_examples,
+            }
+            if skill_examples
+            else None,
             "inputs": {"student": sid, "knownSkills": observed, "totalSkills": N_SKILLS},
             "output": f"{observed} known coordinates, {N_SKILLS - observed} missing",
-            "latex": r"\mathbf{s}_i \in \mathbb{R}^{72},\; |\Omega| = " + str(observed),
+            "latex": rf"\mathbf{{s}}_{{{sid}}} \in \mathbb{{R}}^{{72}},\; |\Omega| = {observed}",
         }
     )
 
+    kernel_sims = analysis.get("similarities")
+    if kernel_sims is None:
+        kernel_sims = np.zeros(len(result.student_ids))
+
     peers = analysis.get("peers") or []
-    if peers:
+    if len(peers) > 0:
         peer_id = peers[0]["student_id"]
         peer_idx = result.student_ids.index(peer_id)
         shared = result.mask[student_idx] & result.mask[peer_idx]
+        u = result.scores[student_idx, shared]
+        v = result.scores[peer_idx, shared]
         k_val, sq_dist = kernel_similarity_observed(
             result.scores[student_idx],
             result.scores[peer_idx],
             shared,
             sigma,
         )
+        shared_headers = ["Skill", sid, peer_id, "(u−v)²"]
+        shared_samples = []
+        shared_idxs = np.where(shared)[0]
+        for j in shared_idxs[:6]:
+            skill = result.skills[j]
+            u_j = float(result.scores[student_idx, j])
+            v_j = float(result.scores[peer_idx, j])
+            shared_samples.append(
+                {
+                    "Skill": skill.skill_name[:24],
+                    sid: round(u_j, 1),
+                    peer_id: round(v_j, 1),
+                    "(u−v)²": round((u_j - v_j) ** 2, 1),
+                }
+            )
+        step_num += 1
         steps.append(
             {
-                "step": 2,
+                "step": step_num,
                 "function": "lib.kernel_similarity_observed",
                 "codeRef": "K(u,v) = exp(-||u-v||² / (2σ²))",
-                "title": "Gaussian kernel on nearest peer",
+                "title": f"Compare {sid} to nearest peer {peer_id}",
+                "explanation": (
+                    f"Only the {int(shared.sum())} skills both students were tested on are used (set Ω). "
+                    f"We sum squared differences across those coordinates to get ||u−v||² = {sq_dist:.2f}, "
+                    f"then map distance to similarity with σ = {sigma}. "
+                    f"Higher K means their observed skill profiles are more alike."
+                ),
+                "details": [
+                    {"label": "Peer", "value": peer_id},
+                    {"label": "Shared tested skills", "value": str(int(shared.sum()))},
+                    {"label": "Σ(u_k − v_k)²", "value": f"{sq_dist:.2f}"},
+                    {"label": "σ (kernel bandwidth)", "value": str(sigma)},
+                    {"label": "Denominator 2σ²", "value": str(2 * sigma**2)},
+                ],
+                "table": {
+                    "headers": shared_headers,
+                    "rows": shared_samples,
+                }
+                if shared_samples
+                else None,
                 "inputs": {
                     "peer": peer_id,
                     "sharedSkills": int(shared.sum()),
@@ -819,55 +964,190 @@ def build_computation_trace(
     if recs:
         top = recs[0]
         skill_j = next(i for i, s in enumerate(result.skills) if s.skill_id == top["skill_id"])
+        is_tested = top.get("is_tested", False)
         bd = breakdown.get(skill_j, {})
         neighbor = bd.get("neighbor_pred")
         related = bd.get("related_pred")
         final = top["predicted_mastery"]
-        if neighbor is not None and related is not None:
-            blend_latex = (
-                rf"\hat{{y}}^{{\text{{final}}}} = {alpha} \cdot {neighbor} + "
-                rf"(1-{alpha}) \cdot {related} = {final}"
+
+        if is_tested:
+            step_num += 1
+            st = next((w for w in observed_work if w["skill_id"] == top["skill_id"]), None)
+            steps.append(
+                {
+                    "step": step_num,
+                    "function": "lib.rank_recommendations",
+                    "codeRef": "priority = (100 − observed mastery) × foundational_weight",
+                    "title": f"Top priority: tested skill {top['skill_name']}",
+                    "explanation": (
+                        f"This skill was actually tested. The score {final:.0f}% is observed from item "
+                        f"responses, not predicted. Priority still uses (100 − score) × foundational weight "
+                        f"so low observed mastery on foundational skills surfaces at the top."
+                    ),
+                    "details": [
+                        {"label": "Status", "value": "Tested (observed)"},
+                        {"label": "Observed mastery", "value": f"{final:.0f}%"},
+                        {
+                            "label": "Item work",
+                            "value": (
+                                f"{st['correct']}/{st['attempted']} correct"
+                                if st
+                                else "from skill vector"
+                            ),
+                        },
+                        {"label": "Foundational weight", "value": f"{top['foundational_weight']:.2f}"},
+                        {"label": "Priority score", "value": f"{top['priority_score']:.1f}"},
+                    ],
+                    "inputs": {"skill": top["skill_name"], "observedMastery": final},
+                    "output": top["priority_score"],
+                    "latex": (
+                        rf"\text{{priority}} = (100 - {final:.0f}) \times "
+                        rf"{top['foundational_weight']:.2f} = {top['priority_score']:.1f}"
+                    ),
+                }
             )
-        elif neighbor is not None:
-            blend_latex = rf"\hat{{y}}^{{\text{{final}}}} = {neighbor} \text{{ (k-NN only)}}"
-        elif related is not None:
-            blend_latex = rf"\hat{{y}}^{{\text{{final}}}} = {related} \text{{ (propagation only)}}"
         else:
-            blend_latex = rf"\hat{{y}}^{{\text{{final}}}} = {final}"
-        steps.append(
-            {
-                "step": 3,
-                "function": "lib.predict_missing_scores_knn_propagate",
-                "codeRef": f"top-{top_k} kernel-weighted peers + skill graph W",
-                "title": f"k-NN + propagation for {top['skill_name']}",
-                "inputs": {
-                    "skill": top["skill_name"],
-                    "k": top_k,
-                    "alpha": alpha,
-                    "neighborPred": neighbor,
-                    "relatedPred": related,
-                },
-                "output": final,
-                "latex": blend_latex,
-            }
-        )
-        steps.append(
-            {
-                "step": 4,
-                "function": "lib.rank_recommendations",
-                "codeRef": "priority = (100 - predicted) × foundational_weight",
-                "title": "Priority ranking",
-                "inputs": {
-                    "predictedMastery": final,
-                    "foundationalWeight": top["foundational_weight"],
-                },
-                "output": top["priority_score"],
-                "latex": (
-                    rf"\text{{priority}} = (100 - {final:.0f}) \times "
-                    rf"{top['foundational_weight']:.2f} = {top['priority_score']:.1f}"
-                ),
-            }
-        )
+            knn_rows, knn_calc = _trace_knn_neighbors(
+                result, student_idx, skill_j, kernel_sims, top_k
+            )
+            if knn_rows:
+                step_num += 1
+                weight_sum = sum(float(r["K_i"]) for r in knn_rows)
+                numer = sum(float(r["K_i × score"]) for r in knn_rows)
+                steps.append(
+                    {
+                        "step": step_num,
+                        "function": "lib.predict_missing_scores_knn_propagate",
+                        "codeRef": "neighbor_pred = Σ(K_i × peer_score_i) / Σ K_i",
+                        "title": f"k-NN neighbors for untested {top['skill_name']}",
+                        "explanation": (
+                            f"{len(knn_rows)} peers were tested on this skill. Each peer's score on "
+                            f"'{top['skill_name']}' is weighted by kernel similarity K_i to {sid} "
+                            f"(computed on shared skills from step 2). "
+                            f"Weighted sum {numer:.1f} ÷ ΣK_i {weight_sum:.4f} = {neighbor or knn_calc:.1f}%."
+                        ),
+                        "details": [
+                            {"label": "Peers with this skill tested", "value": str(len(knn_rows))},
+                            {"label": "k (max neighbors used)", "value": str(top_k)},
+                            {"label": "Σ K_i", "value": f"{weight_sum:.4f}"},
+                            {"label": "Σ K_i × score_i", "value": f"{numer:.1f}"},
+                            {"label": "Neighbor prediction", "value": f"{(neighbor or knn_calc):.1f}%"},
+                        ],
+                        "table": {
+                            "headers": ["Peer", "K_i", "Score on skill", "K_i × score"],
+                            "rows": knn_rows,
+                        },
+                        "inputs": {"skill": top["skill_name"], "k": top_k},
+                        "output": neighbor or knn_calc,
+                        "latex": (
+                            rf"\hat{{y}}^{{\text{{neighbor}}}} = "
+                            rf"\frac{{{numer:.1f}}}{{{weight_sum:.4f}}} = {(neighbor or knn_calc):.1f}"
+                        ),
+                    }
+                )
+
+            prop_rows = _trace_propagation_sources(result, student_idx, skill_j)
+            if prop_rows and related is not None:
+                step_num += 1
+                w_sum = sum(float(r["W weight"]) for r in prop_rows)
+                numer = sum(float(r["W × score"]) for r in prop_rows)
+                steps.append(
+                    {
+                        "step": step_num,
+                        "function": "lib.related_skill_prediction",
+                        "codeRef": "related_pred = Σ W[j,j′] × known_score_j′ / Σ W[j,j′]",
+                        "title": f"Label propagation for {top['skill_name']}",
+                        "explanation": (
+                            f"Skill affinity row W[{top['skill_id']}] links prerequisites, same-category, "
+                            f"and adjacent-level neighbors. {sid}'s known scores on related skills are "
+                            f"averaged with those weights: {numer:.1f} ÷ {w_sum:.3f} = {related:.1f}%."
+                        ),
+                        "details": [
+                            {"label": "Related known skills used", "value": str(len(prop_rows))},
+                            {"label": "Σ W[j,j′]", "value": f"{w_sum:.3f}"},
+                            {"label": "Σ W × known score", "value": f"{numer:.1f}"},
+                            {"label": "Related prediction", "value": f"{related:.1f}%"},
+                        ],
+                        "table": {
+                            "headers": ["Related skill", "W weight", "Known score", "W × score"],
+                            "rows": prop_rows,
+                        },
+                        "inputs": {"skill": top["skill_name"]},
+                        "output": related,
+                        "latex": (
+                            rf"\hat{{y}}^{{\text{{related}}}} = "
+                            rf"\frac{{{numer:.1f}}}{{{w_sum:.3f}}} = {related:.1f}"
+                        ),
+                    }
+                )
+
+            step_num += 1
+            if neighbor is not None and related is not None:
+                blend_latex = (
+                    rf"\hat{{y}}^{{\text{{final}}}} = {alpha} \cdot {neighbor} + "
+                    rf"(1-{alpha}) \cdot {related} = {final}"
+                )
+                blend_expl = (
+                    f"Blend neighbor prediction ({neighbor:.1f}%) and propagation ({related:.1f}%) "
+                    f"with α = {alpha}: {alpha}×{neighbor:.1f} + {1-alpha}×{related:.1f} = {final:.1f}%."
+                )
+            elif neighbor is not None:
+                blend_latex = rf"\hat{{y}}^{{\text{{final}}}} = {neighbor} \text{{ (k-NN only)}}"
+                blend_expl = f"Only k-NN available → final = {neighbor:.1f}%."
+            elif related is not None:
+                blend_latex = rf"\hat{{y}}^{{\text{{final}}}} = {related} \text{{ (propagation only)}}"
+                blend_expl = f"Only propagation available → final = {related:.1f}%."
+            else:
+                blend_latex = rf"\hat{{y}}^{{\text{{final}}}} = {final}"
+                blend_expl = f"Final predicted mastery = {final:.1f}%."
+            steps.append(
+                {
+                    "step": step_num,
+                    "function": "lib.predict_missing_scores_knn_propagate",
+                    "codeRef": "final = α·neighbor + (1−α)·related",
+                    "title": f"Final prediction for {top['skill_name']}",
+                    "explanation": blend_expl,
+                    "details": [
+                        {"label": "α (neighbor weight)", "value": str(alpha)},
+                        {"label": "Neighbor pred", "value": f"{neighbor}%" if neighbor is not None else "—"},
+                        {"label": "Related pred", "value": f"{related}%" if related is not None else "—"},
+                        {"label": "Final mastery", "value": f"{final:.1f}%"},
+                    ],
+                    "inputs": {"alpha": alpha, "neighborPred": neighbor, "relatedPred": related},
+                    "output": final,
+                    "latex": blend_latex,
+                }
+            )
+
+            step_num += 1
+            steps.append(
+                {
+                    "step": step_num,
+                    "function": "lib.rank_recommendations",
+                    "codeRef": "priority = (100 − mastery) × foundational_weight",
+                    "title": "Why this skill ranks #1",
+                    "explanation": (
+                        f"Lower mastery on high foundational-weight skills yields higher priority. "
+                        f"(100 − {final:.0f}) × {top['foundational_weight']:.2f} = {top['priority_score']:.1f} "
+                        f"beats other skills in the full 72-skill ranking."
+                    ),
+                    "details": [
+                        {"label": "Mastery used", "value": f"{final:.1f}% (predicted)"},
+                        {"label": "Gap (100 − mastery)", "value": f"{100 - final:.0f}"},
+                        {"label": "Foundational weight", "value": f"{top['foundational_weight']:.2f}"},
+                        {"label": "Priority score", "value": f"{top['priority_score']:.1f}"},
+                    ],
+                    "inputs": {
+                        "predictedMastery": final,
+                        "foundationalWeight": top["foundational_weight"],
+                    },
+                    "output": top["priority_score"],
+                    "latex": (
+                        rf"\text{{priority}} = (100 - {final:.0f}) \times "
+                        rf"{top['foundational_weight']:.2f} = {top['priority_score']:.1f}"
+                    ),
+                }
+            )
 
     return steps
 

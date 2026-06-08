@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generatedAt": "2026-06-08T04:18:30.194250+00:00",
+    "generatedAt": "2026-06-08T04:26:38.064151+00:00",
     "isSynthetic": true,
     "algorithm": "kernel-knn-label-propagation",
     "scoreSource": "item-responses",
@@ -3606,20 +3606,148 @@
           "step": 1,
           "function": "lib.responses_to_skill_matrix",
           "codeRef": "S[i,j] = 100 \u00d7 (# correct) / (# attempted)",
-          "title": "Build partial skill vector",
+          "title": "Build Elizabeth's partial skill vector",
+          "explanation": "Elizabeth has 40 tested skills and 32 untested. Each tested coordinate in matrix S is a real percentage, not random. Each % comes from (# correct MCQs) \u00f7 (# attempted) for that skill in student_responses.csv.",
+          "details": [
+            {
+              "label": "Student",
+              "value": "Elizabeth"
+            },
+            {
+              "label": "Known skills (|\u03a9|)",
+              "value": "40"
+            },
+            {
+              "label": "Missing skills",
+              "value": "32"
+            },
+            {
+              "label": "Total items attempted",
+              "value": "120"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Correct",
+              "Attempted",
+              "Mastery %"
+            ],
+            "rows": [
+              {
+                "Skill": "Identify Central Claim / Thesis",
+                "Correct": 0,
+                "Attempted": 3,
+                "Mastery %": 0.0
+              },
+              {
+                "Skill": "Organization of Ideas",
+                "Correct": 0,
+                "Attempted": 3,
+                "Mastery %": 0.0
+              },
+              {
+                "Skill": "Summarize Passage Main Points",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Complex Sentence Revision",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Domain-Specific Vocabulary",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              }
+            ]
+          },
           "inputs": {
             "student": "Elizabeth",
             "knownSkills": 40,
             "totalSkills": 72
           },
           "output": "40 known coordinates, 32 missing",
-          "latex": "\\mathbf{s}_i \\in \\mathbb{R}^{72},\\; |\\Omega| = 40"
+          "latex": "\\mathbf{s}_{Elizabeth} \\in \\mathbb{R}^{72},\\; |\\Omega| = 40"
         },
         {
           "step": 2,
           "function": "lib.kernel_similarity_observed",
           "codeRef": "K(u,v) = exp(-||u-v||\u00b2 / (2\u03c3\u00b2))",
-          "title": "Gaussian kernel on nearest peer",
+          "title": "Compare Elizabeth to nearest peer Alexis",
+          "explanation": "Only the 20 skills both students were tested on are used (set \u03a9). We sum squared differences across those coordinates to get ||u\u2212v||\u00b2 = 14444.44, then map distance to similarity with \u03c3 = 25.0. Higher K means their observed skill profiles are more alike.",
+          "details": [
+            {
+              "label": "Peer",
+              "value": "Alexis"
+            },
+            {
+              "label": "Shared tested skills",
+              "value": "20"
+            },
+            {
+              "label": "\u03a3(u_k \u2212 v_k)\u00b2",
+              "value": "14444.44"
+            },
+            {
+              "label": "\u03c3 (kernel bandwidth)",
+              "value": "25.0"
+            },
+            {
+              "label": "Denominator 2\u03c3\u00b2",
+              "value": "1250.0"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Elizabeth",
+              "Alexis",
+              "(u\u2212v)\u00b2"
+            ],
+            "rows": [
+              {
+                "Skill": "Evaluate Argument Streng",
+                "Elizabeth": 100.0,
+                "Alexis": 66.7,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Identify Assumptions",
+                "Elizabeth": 66.7,
+                "Alexis": 100.0,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Analyze Chronological St",
+                "Elizabeth": 66.7,
+                "Alexis": 33.3,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Integrate Complex Passag",
+                "Elizabeth": 100.0,
+                "Alexis": 66.7,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Command of Evidence (Tex",
+                "Elizabeth": 100.0,
+                "Alexis": 66.7,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Compare Quantitative and",
+                "Elizabeth": 66.7,
+                "Alexis": 100.0,
+                "(u\u2212v)\u00b2": 1111.1
+              }
+            ]
+          },
           "inputs": {
             "peer": "Alexis",
             "sharedSkills": 20,
@@ -3631,27 +3759,35 @@
         },
         {
           "step": 3,
-          "function": "lib.predict_missing_scores_knn_propagate",
-          "codeRef": "top-15 kernel-weighted peers + skill graph W",
-          "title": "k-NN + propagation for Identify Central Claim / Thesis",
+          "function": "lib.rank_recommendations",
+          "codeRef": "priority = (100 \u2212 observed mastery) \u00d7 foundational_weight",
+          "title": "Top priority: tested skill Identify Central Claim / Thesis",
+          "explanation": "This skill was actually tested. The score 0% is observed from item responses, not predicted. Priority still uses (100 \u2212 score) \u00d7 foundational weight so low observed mastery on foundational skills surfaces at the top.",
+          "details": [
+            {
+              "label": "Status",
+              "value": "Tested (observed)"
+            },
+            {
+              "label": "Observed mastery",
+              "value": "0%"
+            },
+            {
+              "label": "Item work",
+              "value": "0/3 correct"
+            },
+            {
+              "label": "Foundational weight",
+              "value": "1.00"
+            },
+            {
+              "label": "Priority score",
+              "value": "100.0"
+            }
+          ],
           "inputs": {
             "skill": "Identify Central Claim / Thesis",
-            "k": 15,
-            "alpha": 0.7,
-            "neighborPred": null,
-            "relatedPred": null
-          },
-          "output": 0.0,
-          "latex": "\\hat{y}^{\\text{final}} = 0.0"
-        },
-        {
-          "step": 4,
-          "function": "lib.rank_recommendations",
-          "codeRef": "priority = (100 - predicted) \u00d7 foundational_weight",
-          "title": "Priority ranking",
-          "inputs": {
-            "predictedMastery": 0.0,
-            "foundationalWeight": 1.0
+            "observedMastery": 0.0
           },
           "output": 100.0,
           "latex": "\\text{priority} = (100 - 0) \\times 1.00 = 100.0"
@@ -6444,20 +6580,148 @@
           "step": 1,
           "function": "lib.responses_to_skill_matrix",
           "codeRef": "S[i,j] = 100 \u00d7 (# correct) / (# attempted)",
-          "title": "Build partial skill vector",
+          "title": "Build Alexis's partial skill vector",
+          "explanation": "Alexis has 38 tested skills and 34 untested. Each tested coordinate in matrix S is a real percentage, not random. Each % comes from (# correct MCQs) \u00f7 (# attempted) for that skill in student_responses.csv.",
+          "details": [
+            {
+              "label": "Student",
+              "value": "Alexis"
+            },
+            {
+              "label": "Known skills (|\u03a9|)",
+              "value": "38"
+            },
+            {
+              "label": "Missing skills",
+              "value": "34"
+            },
+            {
+              "label": "Total items attempted",
+              "value": "114"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Correct",
+              "Attempted",
+              "Mastery %"
+            ],
+            "rows": [
+              {
+                "Skill": "Compare Viewpoints Within Passage",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Analyze Cause and Effect",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Analyze Chronological Structure",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Locate Explicit Details",
+                "Correct": 2,
+                "Attempted": 3,
+                "Mastery %": 66.7
+              },
+              {
+                "Skill": "Evaluate Argument Strength",
+                "Correct": 2,
+                "Attempted": 3,
+                "Mastery %": 66.7
+              }
+            ]
+          },
           "inputs": {
             "student": "Alexis",
             "knownSkills": 38,
             "totalSkills": 72
           },
           "output": "38 known coordinates, 34 missing",
-          "latex": "\\mathbf{s}_i \\in \\mathbb{R}^{72},\\; |\\Omega| = 38"
+          "latex": "\\mathbf{s}_{Alexis} \\in \\mathbb{R}^{72},\\; |\\Omega| = 38"
         },
         {
           "step": 2,
           "function": "lib.kernel_similarity_observed",
           "codeRef": "K(u,v) = exp(-||u-v||\u00b2 / (2\u03c3\u00b2))",
-          "title": "Gaussian kernel on nearest peer",
+          "title": "Compare Alexis to nearest peer Anthony",
+          "explanation": "Only the 20 skills both students were tested on are used (set \u03a9). We sum squared differences across those coordinates to get ||u\u2212v||\u00b2 = 5555.56, then map distance to similarity with \u03c3 = 25.0. Higher K means their observed skill profiles are more alike.",
+          "details": [
+            {
+              "label": "Peer",
+              "value": "Anthony"
+            },
+            {
+              "label": "Shared tested skills",
+              "value": "20"
+            },
+            {
+              "label": "\u03a3(u_k \u2212 v_k)\u00b2",
+              "value": "5555.56"
+            },
+            {
+              "label": "\u03c3 (kernel bandwidth)",
+              "value": "25.0"
+            },
+            {
+              "label": "Denominator 2\u03c3\u00b2",
+              "value": "1250.0"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Alexis",
+              "Anthony",
+              "(u\u2212v)\u00b2"
+            ],
+            "rows": [
+              {
+                "Skill": "Locate Explicit Details",
+                "Alexis": 66.7,
+                "Anthony": 66.7,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Compare Viewpoints Withi",
+                "Alexis": 33.3,
+                "Anthony": 33.3,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Analyze Cause and Effect",
+                "Alexis": 33.3,
+                "Anthony": 66.7,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Evaluate Argument Streng",
+                "Alexis": 66.7,
+                "Anthony": 100.0,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Identify Assumptions",
+                "Alexis": 100.0,
+                "Anthony": 100.0,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Analyze Chronological St",
+                "Alexis": 33.3,
+                "Anthony": 33.3,
+                "(u\u2212v)\u00b2": 0.0
+              }
+            ]
+          },
           "inputs": {
             "peer": "Anthony",
             "sharedSkills": 20,
@@ -6469,27 +6733,35 @@
         },
         {
           "step": 3,
-          "function": "lib.predict_missing_scores_knn_propagate",
-          "codeRef": "top-15 kernel-weighted peers + skill graph W",
-          "title": "k-NN + propagation for Compare Viewpoints Within Passage",
+          "function": "lib.rank_recommendations",
+          "codeRef": "priority = (100 \u2212 observed mastery) \u00d7 foundational_weight",
+          "title": "Top priority: tested skill Compare Viewpoints Within Passage",
+          "explanation": "This skill was actually tested. The score 33% is observed from item responses, not predicted. Priority still uses (100 \u2212 score) \u00d7 foundational weight so low observed mastery on foundational skills surfaces at the top.",
+          "details": [
+            {
+              "label": "Status",
+              "value": "Tested (observed)"
+            },
+            {
+              "label": "Observed mastery",
+              "value": "33%"
+            },
+            {
+              "label": "Item work",
+              "value": "1/3 correct"
+            },
+            {
+              "label": "Foundational weight",
+              "value": "0.75"
+            },
+            {
+              "label": "Priority score",
+              "value": "50.0"
+            }
+          ],
           "inputs": {
             "skill": "Compare Viewpoints Within Passage",
-            "k": 15,
-            "alpha": 0.7,
-            "neighborPred": null,
-            "relatedPred": null
-          },
-          "output": 33.3,
-          "latex": "\\hat{y}^{\\text{final}} = 33.3"
-        },
-        {
-          "step": 4,
-          "function": "lib.rank_recommendations",
-          "codeRef": "priority = (100 - predicted) \u00d7 foundational_weight",
-          "title": "Priority ranking",
-          "inputs": {
-            "predictedMastery": 33.3,
-            "foundationalWeight": 0.75
+            "observedMastery": 33.3
           },
           "output": 50.0,
           "latex": "\\text{priority} = (100 - 33) \\times 0.75 = 50.0"
@@ -9458,20 +9730,148 @@
           "step": 1,
           "function": "lib.responses_to_skill_matrix",
           "codeRef": "S[i,j] = 100 \u00d7 (# correct) / (# attempted)",
-          "title": "Build partial skill vector",
+          "title": "Build Aaron's partial skill vector",
+          "explanation": "Aaron has 42 tested skills and 30 untested. Each tested coordinate in matrix S is a real percentage, not random. Each % comes from (# correct MCQs) \u00f7 (# attempted) for that skill in student_responses.csv.",
+          "details": [
+            {
+              "label": "Student",
+              "value": "Aaron"
+            },
+            {
+              "label": "Known skills (|\u03a9|)",
+              "value": "42"
+            },
+            {
+              "label": "Missing skills",
+              "value": "30"
+            },
+            {
+              "label": "Total items attempted",
+              "value": "126"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Correct",
+              "Attempted",
+              "Mastery %"
+            ],
+            "rows": [
+              {
+                "Skill": "Synthesize Multi-Paragraph Ideas",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Subject-Verb Agreement",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Pronoun-Antecedent Agreement",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Verb Tense Consistency",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Comma Usage with Clauses",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              }
+            ]
+          },
           "inputs": {
             "student": "Aaron",
             "knownSkills": 42,
             "totalSkills": 72
           },
           "output": "42 known coordinates, 30 missing",
-          "latex": "\\mathbf{s}_i \\in \\mathbb{R}^{72},\\; |\\Omega| = 42"
+          "latex": "\\mathbf{s}_{Aaron} \\in \\mathbb{R}^{72},\\; |\\Omega| = 42"
         },
         {
           "step": 2,
           "function": "lib.kernel_similarity_observed",
           "codeRef": "K(u,v) = exp(-||u-v||\u00b2 / (2\u03c3\u00b2))",
-          "title": "Gaussian kernel on nearest peer",
+          "title": "Compare Aaron to nearest peer Mason",
+          "explanation": "Only the 18 skills both students were tested on are used (set \u03a9). We sum squared differences across those coordinates to get ||u\u2212v||\u00b2 = 13333.33, then map distance to similarity with \u03c3 = 25.0. Higher K means their observed skill profiles are more alike.",
+          "details": [
+            {
+              "label": "Peer",
+              "value": "Mason"
+            },
+            {
+              "label": "Shared tested skills",
+              "value": "18"
+            },
+            {
+              "label": "\u03a3(u_k \u2212 v_k)\u00b2",
+              "value": "13333.33"
+            },
+            {
+              "label": "\u03c3 (kernel bandwidth)",
+              "value": "25.0"
+            },
+            {
+              "label": "Denominator 2\u03c3\u00b2",
+              "value": "1250.0"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Aaron",
+              "Mason",
+              "(u\u2212v)\u00b2"
+            ],
+            "rows": [
+              {
+                "Skill": "Understand Author's Tone",
+                "Aaron": 66.7,
+                "Mason": 33.3,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Analyze Cause and Effect",
+                "Aaron": 66.7,
+                "Mason": 66.7,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Identify Assumptions",
+                "Aaron": 100.0,
+                "Mason": 66.7,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Evaluate Counterargument",
+                "Aaron": 66.7,
+                "Mason": 66.7,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Match Evidence to Claim",
+                "Aaron": 66.7,
+                "Mason": 100.0,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Interpret Charts in Cont",
+                "Aaron": 66.7,
+                "Mason": 100.0,
+                "(u\u2212v)\u00b2": 1111.1
+              }
+            ]
+          },
           "inputs": {
             "peer": "Mason",
             "sharedSkills": 18,
@@ -9483,27 +9883,35 @@
         },
         {
           "step": 3,
-          "function": "lib.predict_missing_scores_knn_propagate",
-          "codeRef": "top-15 kernel-weighted peers + skill graph W",
-          "title": "k-NN + propagation for Pronoun-Antecedent Agreement",
+          "function": "lib.rank_recommendations",
+          "codeRef": "priority = (100 \u2212 observed mastery) \u00d7 foundational_weight",
+          "title": "Top priority: tested skill Pronoun-Antecedent Agreement",
+          "explanation": "This skill was actually tested. The score 33% is observed from item responses, not predicted. Priority still uses (100 \u2212 score) \u00d7 foundational weight so low observed mastery on foundational skills surfaces at the top.",
+          "details": [
+            {
+              "label": "Status",
+              "value": "Tested (observed)"
+            },
+            {
+              "label": "Observed mastery",
+              "value": "33%"
+            },
+            {
+              "label": "Item work",
+              "value": "1/3 correct"
+            },
+            {
+              "label": "Foundational weight",
+              "value": "1.00"
+            },
+            {
+              "label": "Priority score",
+              "value": "66.7"
+            }
+          ],
           "inputs": {
             "skill": "Pronoun-Antecedent Agreement",
-            "k": 15,
-            "alpha": 0.7,
-            "neighborPred": null,
-            "relatedPred": null
-          },
-          "output": 33.3,
-          "latex": "\\hat{y}^{\\text{final}} = 33.3"
-        },
-        {
-          "step": 4,
-          "function": "lib.rank_recommendations",
-          "codeRef": "priority = (100 - predicted) \u00d7 foundational_weight",
-          "title": "Priority ranking",
-          "inputs": {
-            "predictedMastery": 33.3,
-            "foundationalWeight": 1.0
+            "observedMastery": 33.3
           },
           "output": 66.7,
           "latex": "\\text{priority} = (100 - 33) \\times 1.00 = 66.7"
@@ -12296,20 +12704,148 @@
           "step": 1,
           "function": "lib.responses_to_skill_matrix",
           "codeRef": "S[i,j] = 100 \u00d7 (# correct) / (# attempted)",
-          "title": "Build partial skill vector",
+          "title": "Build Jason's partial skill vector",
+          "explanation": "Jason has 38 tested skills and 34 untested. Each tested coordinate in matrix S is a real percentage, not random. Each % comes from (# correct MCQs) \u00f7 (# attempted) for that skill in student_responses.csv.",
+          "details": [
+            {
+              "label": "Student",
+              "value": "Jason"
+            },
+            {
+              "label": "Known skills (|\u03a9|)",
+              "value": "38"
+            },
+            {
+              "label": "Missing skills",
+              "value": "34"
+            },
+            {
+              "label": "Total items attempted",
+              "value": "114"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Correct",
+              "Attempted",
+              "Mastery %"
+            ],
+            "rows": [
+              {
+                "Skill": "Strengthen Arguments with Evidence",
+                "Correct": 0,
+                "Attempted": 3,
+                "Mastery %": 0.0
+              },
+              {
+                "Skill": "Identify Central Claim / Thesis",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Synthesize Multi-Paragraph Ideas",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Multiple-Meaning Words",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Evaluate Audience Awareness",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              }
+            ]
+          },
           "inputs": {
             "student": "Jason",
             "knownSkills": 38,
             "totalSkills": 72
           },
           "output": "38 known coordinates, 34 missing",
-          "latex": "\\mathbf{s}_i \\in \\mathbb{R}^{72},\\; |\\Omega| = 38"
+          "latex": "\\mathbf{s}_{Jason} \\in \\mathbb{R}^{72},\\; |\\Omega| = 38"
         },
         {
           "step": 2,
           "function": "lib.kernel_similarity_observed",
           "codeRef": "K(u,v) = exp(-||u-v||\u00b2 / (2\u03c3\u00b2))",
-          "title": "Gaussian kernel on nearest peer",
+          "title": "Compare Jason to nearest peer Ian",
+          "explanation": "Only the 18 skills both students were tested on are used (set \u03a9). We sum squared differences across those coordinates to get ||u\u2212v||\u00b2 = 7777.78, then map distance to similarity with \u03c3 = 25.0. Higher K means their observed skill profiles are more alike.",
+          "details": [
+            {
+              "label": "Peer",
+              "value": "Ian"
+            },
+            {
+              "label": "Shared tested skills",
+              "value": "18"
+            },
+            {
+              "label": "\u03a3(u_k \u2212 v_k)\u00b2",
+              "value": "7777.78"
+            },
+            {
+              "label": "\u03c3 (kernel bandwidth)",
+              "value": "25.0"
+            },
+            {
+              "label": "Denominator 2\u03c3\u00b2",
+              "value": "1250.0"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Jason",
+              "Ian",
+              "(u\u2212v)\u00b2"
+            ],
+            "rows": [
+              {
+                "Skill": "Understand Author's Tone",
+                "Jason": 66.7,
+                "Ian": 100.0,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Predict Author Response",
+                "Jason": 100.0,
+                "Ian": 100.0,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Analyze Cause and Effect",
+                "Jason": 66.7,
+                "Ian": 100.0,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Synthesize Multi-Paragra",
+                "Jason": 33.3,
+                "Ian": 33.3,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Evaluate Counterargument",
+                "Jason": 100.0,
+                "Ian": 100.0,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Match Evidence to Claim",
+                "Jason": 100.0,
+                "Ian": 66.7,
+                "(u\u2212v)\u00b2": 1111.1
+              }
+            ]
+          },
           "inputs": {
             "peer": "Ian",
             "sharedSkills": 18,
@@ -12321,27 +12857,35 @@
         },
         {
           "step": 3,
-          "function": "lib.predict_missing_scores_knn_propagate",
-          "codeRef": "top-15 kernel-weighted peers + skill graph W",
-          "title": "k-NN + propagation for Identify Central Claim / Thesis",
+          "function": "lib.rank_recommendations",
+          "codeRef": "priority = (100 \u2212 observed mastery) \u00d7 foundational_weight",
+          "title": "Top priority: tested skill Identify Central Claim / Thesis",
+          "explanation": "This skill was actually tested. The score 33% is observed from item responses, not predicted. Priority still uses (100 \u2212 score) \u00d7 foundational weight so low observed mastery on foundational skills surfaces at the top.",
+          "details": [
+            {
+              "label": "Status",
+              "value": "Tested (observed)"
+            },
+            {
+              "label": "Observed mastery",
+              "value": "33%"
+            },
+            {
+              "label": "Item work",
+              "value": "1/3 correct"
+            },
+            {
+              "label": "Foundational weight",
+              "value": "1.00"
+            },
+            {
+              "label": "Priority score",
+              "value": "66.7"
+            }
+          ],
           "inputs": {
             "skill": "Identify Central Claim / Thesis",
-            "k": 15,
-            "alpha": 0.7,
-            "neighborPred": null,
-            "relatedPred": null
-          },
-          "output": 33.3,
-          "latex": "\\hat{y}^{\\text{final}} = 33.3"
-        },
-        {
-          "step": 4,
-          "function": "lib.rank_recommendations",
-          "codeRef": "priority = (100 - predicted) \u00d7 foundational_weight",
-          "title": "Priority ranking",
-          "inputs": {
-            "predictedMastery": 33.3,
-            "foundationalWeight": 1.0
+            "observedMastery": 33.3
           },
           "output": 66.7,
           "latex": "\\text{priority} = (100 - 33) \\times 1.00 = 66.7"
@@ -15178,20 +15722,148 @@
           "step": 1,
           "function": "lib.responses_to_skill_matrix",
           "codeRef": "S[i,j] = 100 \u00d7 (# correct) / (# attempted)",
-          "title": "Build partial skill vector",
+          "title": "Build Hannah's partial skill vector",
+          "explanation": "Hannah has 39 tested skills and 33 untested. Each tested coordinate in matrix S is a real percentage, not random. Each % comes from (# correct MCQs) \u00f7 (# attempted) for that skill in student_responses.csv.",
+          "details": [
+            {
+              "label": "Student",
+              "value": "Hannah"
+            },
+            {
+              "label": "Known skills (|\u03a9|)",
+              "value": "39"
+            },
+            {
+              "label": "Missing skills",
+              "value": "33"
+            },
+            {
+              "label": "Total items attempted",
+              "value": "117"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Correct",
+              "Attempted",
+              "Mastery %"
+            ],
+            "rows": [
+              {
+                "Skill": "Synthesize Multi-Paragraph Ideas",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Parallel Structure",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Comparative and Superlative Forms",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Coherence Across Paragraphs",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Determine Paragraph Purpose",
+                "Correct": 2,
+                "Attempted": 3,
+                "Mastery %": 66.7
+              }
+            ]
+          },
           "inputs": {
             "student": "Hannah",
             "knownSkills": 39,
             "totalSkills": 72
           },
           "output": "39 known coordinates, 33 missing",
-          "latex": "\\mathbf{s}_i \\in \\mathbb{R}^{72},\\; |\\Omega| = 39"
+          "latex": "\\mathbf{s}_{Hannah} \\in \\mathbb{R}^{72},\\; |\\Omega| = 39"
         },
         {
           "step": 2,
           "function": "lib.kernel_similarity_observed",
           "codeRef": "K(u,v) = exp(-||u-v||\u00b2 / (2\u03c3\u00b2))",
-          "title": "Gaussian kernel on nearest peer",
+          "title": "Compare Hannah to nearest peer Nicholas",
+          "explanation": "Only the 18 skills both students were tested on are used (set \u03a9). We sum squared differences across those coordinates to get ||u\u2212v||\u00b2 = 12222.22, then map distance to similarity with \u03c3 = 25.0. Higher K means their observed skill profiles are more alike.",
+          "details": [
+            {
+              "label": "Peer",
+              "value": "Nicholas"
+            },
+            {
+              "label": "Shared tested skills",
+              "value": "18"
+            },
+            {
+              "label": "\u03a3(u_k \u2212 v_k)\u00b2",
+              "value": "12222.22"
+            },
+            {
+              "label": "\u03c3 (kernel bandwidth)",
+              "value": "25.0"
+            },
+            {
+              "label": "Denominator 2\u03c3\u00b2",
+              "value": "1250.0"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Hannah",
+              "Nicholas",
+              "(u\u2212v)\u00b2"
+            ],
+            "rows": [
+              {
+                "Skill": "Summarize Passage Main P",
+                "Hannah": 100.0,
+                "Nicholas": 100.0,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Track Argument Developme",
+                "Hannah": 66.7,
+                "Nicholas": 66.7,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Synthesize Multi-Paragra",
+                "Hannah": 33.3,
+                "Nicholas": 33.3,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Evaluate Counterargument",
+                "Hannah": 66.7,
+                "Nicholas": 66.7,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Integrate Complex Passag",
+                "Hannah": 100.0,
+                "Nicholas": 66.7,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Evaluate Evidence Releva",
+                "Hannah": 66.7,
+                "Nicholas": 100.0,
+                "(u\u2212v)\u00b2": 1111.1
+              }
+            ]
+          },
           "inputs": {
             "peer": "Nicholas",
             "sharedSkills": 18,
@@ -15204,11 +15876,263 @@
         {
           "step": 3,
           "function": "lib.predict_missing_scores_knn_propagate",
-          "codeRef": "top-15 kernel-weighted peers + skill graph W",
-          "title": "k-NN + propagation for Subject-Verb Agreement",
+          "codeRef": "neighbor_pred = \u03a3(K_i \u00d7 peer_score_i) / \u03a3 K_i",
+          "title": "k-NN neighbors for untested Subject-Verb Agreement",
+          "explanation": "15 peers were tested on this skill. Each peer's score on 'Subject-Verb Agreement' is weighted by kernel similarity K_i to Hannah (computed on shared skills from step 2). Weighted sum 0.0 \u00f7 \u03a3K_i 0.0003 = 38.8%.",
+          "details": [
+            {
+              "label": "Peers with this skill tested",
+              "value": "15"
+            },
+            {
+              "label": "k (max neighbors used)",
+              "value": "15"
+            },
+            {
+              "label": "\u03a3 K_i",
+              "value": "0.0003"
+            },
+            {
+              "label": "\u03a3 K_i \u00d7 score_i",
+              "value": "0.0"
+            },
+            {
+              "label": "Neighbor prediction",
+              "value": "38.8%"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Peer",
+              "K_i",
+              "Score on skill",
+              "K_i \u00d7 score"
+            ],
+            "rows": [
+              {
+                "Peer": "Victor",
+                "K_i": 0.0001,
+                "Score on skill": 66.7,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Nicholas",
+                "K_i": 0.0001,
+                "Score on skill": 0.0,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Caleb",
+                "K_i": 0.0001,
+                "Score on skill": 33.3,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Travis",
+                "K_i": 0.0,
+                "Score on skill": 66.7,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Taylor",
+                "K_i": 0.0,
+                "Score on skill": 100.0,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Amir",
+                "K_i": 0.0,
+                "Score on skill": 100.0,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Samantha",
+                "K_i": 0.0,
+                "Score on skill": 100.0,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Vivian",
+                "K_i": 0.0,
+                "Score on skill": 66.7,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Brooke",
+                "K_i": 0.0,
+                "Score on skill": 66.7,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Aaron",
+                "K_i": 0.0,
+                "Score on skill": 33.3,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Kevin",
+                "K_i": 0.0,
+                "Score on skill": 66.7,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Mia",
+                "K_i": 0.0,
+                "Score on skill": 66.7,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Leah",
+                "K_i": 0.0,
+                "Score on skill": 100.0,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "Peter",
+                "K_i": 0.0,
+                "Score on skill": 100.0,
+                "K_i \u00d7 score": 0.0
+              },
+              {
+                "Peer": "William",
+                "K_i": 0.0,
+                "Score on skill": 0.0,
+                "K_i \u00d7 score": 0.0
+              }
+            ]
+          },
           "inputs": {
             "skill": "Subject-Verb Agreement",
-            "k": 15,
+            "k": 15
+          },
+          "output": 38.8,
+          "latex": "\\hat{y}^{\\text{neighbor}} = \\frac{0.0}{0.0003} = 38.8"
+        },
+        {
+          "step": 4,
+          "function": "lib.related_skill_prediction",
+          "codeRef": "related_pred = \u03a3 W[j,j\u2032] \u00d7 known_score_j\u2032 / \u03a3 W[j,j\u2032]",
+          "title": "Label propagation for Subject-Verb Agreement",
+          "explanation": "Skill affinity row W[SK031] links prerequisites, same-category, and adjacent-level neighbors. Hannah's known scores on related skills are averaged with those weights: 24.7 \u00f7 0.360 = 73.9%.",
+          "details": [
+            {
+              "label": "Related known skills used",
+              "value": "10"
+            },
+            {
+              "label": "\u03a3 W[j,j\u2032]",
+              "value": "0.360"
+            },
+            {
+              "label": "\u03a3 W \u00d7 known score",
+              "value": "24.7"
+            },
+            {
+              "label": "Related prediction",
+              "value": "73.9%"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Related skill",
+              "W weight",
+              "Known score",
+              "W \u00d7 score"
+            ],
+            "rows": [
+              {
+                "Related skill": "Pronoun-Antecedent Agreement",
+                "W weight": 0.068,
+                "Known score": 66.7,
+                "W \u00d7 score": 4.54
+              },
+              {
+                "Related skill": "Verb Tense Consistency",
+                "W weight": 0.034,
+                "Known score": 66.7,
+                "W \u00d7 score": 2.27
+              },
+              {
+                "Related skill": "Comma Usage with Clauses",
+                "W weight": 0.034,
+                "Known score": 100.0,
+                "W \u00d7 score": 3.4
+              },
+              {
+                "Related skill": "Modifier Placement",
+                "W weight": 0.034,
+                "Known score": 66.7,
+                "W \u00d7 score": 2.27
+              },
+              {
+                "Related skill": "Parallel Structure",
+                "W weight": 0.034,
+                "Known score": 33.3,
+                "W \u00d7 score": 1.13
+              },
+              {
+                "Related skill": "Semicolon and Colon Usage",
+                "W weight": 0.034,
+                "Known score": 66.7,
+                "W \u00d7 score": 2.27
+              },
+              {
+                "Related skill": "Idiom and Preposition Usage",
+                "W weight": 0.034,
+                "Known score": 100.0,
+                "W \u00d7 score": 3.4
+              },
+              {
+                "Related skill": "Comparative and Superlative Forms",
+                "W weight": 0.034,
+                "Known score": 33.3,
+                "W \u00d7 score": 1.13
+              },
+              {
+                "Related skill": "Complex Sentence Revision",
+                "W weight": 0.034,
+                "Known score": 66.7,
+                "W \u00d7 score": 2.27
+              },
+              {
+                "Related skill": "Understand Author's Tone",
+                "W weight": 0.02,
+                "Known score": 100.0,
+                "W \u00d7 score": 2.04
+              }
+            ]
+          },
+          "inputs": {
+            "skill": "Subject-Verb Agreement"
+          },
+          "output": 73.9,
+          "latex": "\\hat{y}^{\\text{related}} = \\frac{24.7}{0.360} = 73.9"
+        },
+        {
+          "step": 5,
+          "function": "lib.predict_missing_scores_knn_propagate",
+          "codeRef": "final = \u03b1\u00b7neighbor + (1\u2212\u03b1)\u00b7related",
+          "title": "Final prediction for Subject-Verb Agreement",
+          "explanation": "Blend neighbor prediction (38.8%) and propagation (73.9%) with \u03b1 = 0.7: 0.7\u00d738.8 + 0.30000000000000004\u00d773.9 = 49.3%.",
+          "details": [
+            {
+              "label": "\u03b1 (neighbor weight)",
+              "value": "0.7"
+            },
+            {
+              "label": "Neighbor pred",
+              "value": "38.8%"
+            },
+            {
+              "label": "Related pred",
+              "value": "73.9%"
+            },
+            {
+              "label": "Final mastery",
+              "value": "49.3%"
+            }
+          ],
+          "inputs": {
             "alpha": 0.7,
             "neighborPred": 38.8,
             "relatedPred": 73.9
@@ -15217,10 +16141,29 @@
           "latex": "\\hat{y}^{\\text{final}} = 0.7 \\cdot 38.8 + (1-0.7) \\cdot 73.9 = 49.3"
         },
         {
-          "step": 4,
+          "step": 6,
           "function": "lib.rank_recommendations",
-          "codeRef": "priority = (100 - predicted) \u00d7 foundational_weight",
-          "title": "Priority ranking",
+          "codeRef": "priority = (100 \u2212 mastery) \u00d7 foundational_weight",
+          "title": "Why this skill ranks #1",
+          "explanation": "Lower mastery on high foundational-weight skills yields higher priority. (100 \u2212 49) \u00d7 1.00 = 50.7 beats other skills in the full 72-skill ranking.",
+          "details": [
+            {
+              "label": "Mastery used",
+              "value": "49.3% (predicted)"
+            },
+            {
+              "label": "Gap (100 \u2212 mastery)",
+              "value": "51"
+            },
+            {
+              "label": "Foundational weight",
+              "value": "1.00"
+            },
+            {
+              "label": "Priority score",
+              "value": "50.7"
+            }
+          ],
           "inputs": {
             "predictedMastery": 49.3,
             "foundationalWeight": 1.0
@@ -18104,20 +19047,148 @@
           "step": 1,
           "function": "lib.responses_to_skill_matrix",
           "codeRef": "S[i,j] = 100 \u00d7 (# correct) / (# attempted)",
-          "title": "Build partial skill vector",
+          "title": "Build Sarah's partial skill vector",
+          "explanation": "Sarah has 40 tested skills and 32 untested. Each tested coordinate in matrix S is a real percentage, not random. Each % comes from (# correct MCQs) \u00f7 (# attempted) for that skill in student_responses.csv.",
+          "details": [
+            {
+              "label": "Student",
+              "value": "Sarah"
+            },
+            {
+              "label": "Known skills (|\u03a9|)",
+              "value": "40"
+            },
+            {
+              "label": "Missing skills",
+              "value": "32"
+            },
+            {
+              "label": "Total items attempted",
+              "value": "120"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Correct",
+              "Attempted",
+              "Mastery %"
+            ],
+            "rows": [
+              {
+                "Skill": "Understand Author's Tone",
+                "Correct": 0,
+                "Attempted": 3,
+                "Mastery %": 0.0
+              },
+              {
+                "Skill": "Resolve Conflicting Information",
+                "Correct": 0,
+                "Attempted": 3,
+                "Mastery %": 0.0
+              },
+              {
+                "Skill": "Subject-Verb Agreement",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Apostrophe and Possessives",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              },
+              {
+                "Skill": "Parallel Structure",
+                "Correct": 1,
+                "Attempted": 3,
+                "Mastery %": 33.3
+              }
+            ]
+          },
           "inputs": {
             "student": "Sarah",
             "knownSkills": 40,
             "totalSkills": 72
           },
           "output": "40 known coordinates, 32 missing",
-          "latex": "\\mathbf{s}_i \\in \\mathbb{R}^{72},\\; |\\Omega| = 40"
+          "latex": "\\mathbf{s}_{Sarah} \\in \\mathbb{R}^{72},\\; |\\Omega| = 40"
         },
         {
           "step": 2,
           "function": "lib.kernel_similarity_observed",
           "codeRef": "K(u,v) = exp(-||u-v||\u00b2 / (2\u03c3\u00b2))",
-          "title": "Gaussian kernel on nearest peer",
+          "title": "Compare Sarah to nearest peer Angela",
+          "explanation": "Only the 20 skills both students were tested on are used (set \u03a9). We sum squared differences across those coordinates to get ||u\u2212v||\u00b2 = 7777.78, then map distance to similarity with \u03c3 = 25.0. Higher K means their observed skill profiles are more alike.",
+          "details": [
+            {
+              "label": "Peer",
+              "value": "Angela"
+            },
+            {
+              "label": "Shared tested skills",
+              "value": "20"
+            },
+            {
+              "label": "\u03a3(u_k \u2212 v_k)\u00b2",
+              "value": "7777.78"
+            },
+            {
+              "label": "\u03c3 (kernel bandwidth)",
+              "value": "25.0"
+            },
+            {
+              "label": "Denominator 2\u03c3\u00b2",
+              "value": "1250.0"
+            }
+          ],
+          "table": {
+            "headers": [
+              "Skill",
+              "Sarah",
+              "Angela",
+              "(u\u2212v)\u00b2"
+            ],
+            "rows": [
+              {
+                "Skill": "Draw Logical Inferences",
+                "Sarah": 100.0,
+                "Angela": 100.0,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Analyze Chronological St",
+                "Sarah": 100.0,
+                "Angela": 66.7,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Evaluate Evidence Releva",
+                "Sarah": 66.7,
+                "Angela": 66.7,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Evaluate Statistical Cla",
+                "Sarah": 66.7,
+                "Angela": 66.7,
+                "(u\u2212v)\u00b2": 0.0
+              },
+              {
+                "Skill": "Pronoun-Antecedent Agree",
+                "Sarah": 66.7,
+                "Angela": 100.0,
+                "(u\u2212v)\u00b2": 1111.1
+              },
+              {
+                "Skill": "Verb Tense Consistency",
+                "Sarah": 66.7,
+                "Angela": 66.7,
+                "(u\u2212v)\u00b2": 0.0
+              }
+            ]
+          },
           "inputs": {
             "peer": "Angela",
             "sharedSkills": 20,
@@ -18129,27 +19200,35 @@
         },
         {
           "step": 3,
-          "function": "lib.predict_missing_scores_knn_propagate",
-          "codeRef": "top-15 kernel-weighted peers + skill graph W",
-          "title": "k-NN + propagation for Understand Author's Tone",
+          "function": "lib.rank_recommendations",
+          "codeRef": "priority = (100 \u2212 observed mastery) \u00d7 foundational_weight",
+          "title": "Top priority: tested skill Understand Author's Tone",
+          "explanation": "This skill was actually tested. The score 0% is observed from item responses, not predicted. Priority still uses (100 \u2212 score) \u00d7 foundational weight so low observed mastery on foundational skills surfaces at the top.",
+          "details": [
+            {
+              "label": "Status",
+              "value": "Tested (observed)"
+            },
+            {
+              "label": "Observed mastery",
+              "value": "0%"
+            },
+            {
+              "label": "Item work",
+              "value": "0/3 correct"
+            },
+            {
+              "label": "Foundational weight",
+              "value": "0.75"
+            },
+            {
+              "label": "Priority score",
+              "value": "75.0"
+            }
+          ],
           "inputs": {
             "skill": "Understand Author's Tone",
-            "k": 15,
-            "alpha": 0.7,
-            "neighborPred": null,
-            "relatedPred": null
-          },
-          "output": 0.0,
-          "latex": "\\hat{y}^{\\text{final}} = 0.0"
-        },
-        {
-          "step": 4,
-          "function": "lib.rank_recommendations",
-          "codeRef": "priority = (100 - predicted) \u00d7 foundational_weight",
-          "title": "Priority ranking",
-          "inputs": {
-            "predictedMastery": 0.0,
-            "foundationalWeight": 0.75
+            "observedMastery": 0.0
           },
           "output": 75.0,
           "latex": "\\text{priority} = (100 - 0) \\times 0.75 = 75.0"

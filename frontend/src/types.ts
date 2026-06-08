@@ -58,11 +58,24 @@ export interface SkillMeta {
   level: string;
 }
 
+export interface TraceDetailRow {
+  label: string;
+  value: string;
+}
+
+export interface TraceTable {
+  headers: string[];
+  rows: Record<string, string | number>[];
+}
+
 export interface ComputationStep {
   step: number;
   function: string;
   codeRef: string;
   title: string;
+  explanation?: string;
+  details?: TraceDetailRow[];
+  table?: TraceTable | null;
   inputs: Record<string, unknown>;
   output: string | number;
   latex: string;
