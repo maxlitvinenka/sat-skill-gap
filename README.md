@@ -4,12 +4,25 @@
 
 Predicts which SAT Reading/Writing skills a student is likely weak in when those skills have **not been tested yet**. Skill scores are **computed bottom-up from synthetic MCQ item responses** — every percentage is auditable from visible question attempts.
 
+## GitHub
+
+**Repository:** [github.com/maxlitvinenka/sat-skill-gap](https://github.com/maxlitvinenka/sat-skill-gap) (private)
+
+Clone and run locally — no public website required:
+
+```bash
+git clone https://github.com/maxlitvinenka/sat-skill-gap.git
+cd sat-skill-gap
+```
+
+Invite collaborators under **Settings → Collaborators** to share access without making the repo public.
+
 ## Quick start
 
 ### Python pipeline
 
 ```bash
-cd sat-skill-gap-prototype
+cd sat-skill-gap
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -38,7 +51,7 @@ Open **http://localhost:5173** — reads pre-generated `dashboard.json`.
 Run the FastAPI server and Vite together so predictions execute on demand via real `lib.py`:
 
 ```bash
-cd sat-skill-gap-prototype
+cd sat-skill-gap
 source .venv/bin/activate
 pip install -r requirements.txt
 npm install
